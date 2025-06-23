@@ -1,12 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ShoppingCart, Star, AlertTriangle, Dumbbell, Heart, Laugh, Briefcase } from "lucide-react"
 import { gsap } from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Pagination, Autoplay } from 'swiper/modules';
+import { CartContext } from "@/components/providers"
+import { ProductCard } from "@/components/product-card"
+import { Navbar } from "@/components/navbar"
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger)
@@ -18,6 +23,7 @@ const categories = [
     name: "18+",
     icon: AlertTriangle,
     tagline: "Gaaliyan? Check.\nToxicity? Certified.\nDecency? Not found.",
+    image: "/placeholder.jpg",
     color: "bg-red-600",
     warning: true,
   },
@@ -26,6 +32,7 @@ const categories = [
     name: "Fitness",
     icon: Dumbbell,
     tagline: "Gym jaana hai?\nYa sirf flex karna hai?\nHum judge nahi karenge.",
+    image: "/placeholder.jpg",
     color: "bg-gray-700",
   },
   {
@@ -33,6 +40,7 @@ const categories = [
     name: "Pets",
     icon: Heart,
     tagline: "Dogs > Humans\nCats = Attitude\nHamsters = Chaos",
+    image: "/placeholder.jpg",
     color: "bg-gray-600",
   },
   {
@@ -40,6 +48,7 @@ const categories = [
     name: "Funny",
     icon: Laugh,
     tagline: "Hasna hai?\nRona hai?\nDono kar sakte ho.",
+    image: "/placeholder.jpg",
     color: "bg-gray-800",
   },
   {
@@ -47,6 +56,7 @@ const categories = [
     name: "Profession",
     icon: Briefcase,
     tagline: "Office mein rebel?\nBoss ko impress?\nYahan sab milega.",
+    image: "/placeholder.jpg",
     color: "bg-gray-500",
   },
 ]
@@ -56,7 +66,7 @@ const products = [
     id: 1,
     name: "Toxic But Make It Fashion",
     price: 1299,
-    image: "/placeholder.svg?height=300&width=300",
+    image: "/placeholder.svg",
     category: "18+",
     description: "For when you want to be problematic but stylishly",
   },
@@ -64,7 +74,7 @@ const products = [
     id: 2,
     name: "Gym Jaana Hai Bro",
     price: 1499,
-    image: "/placeholder.svg?height=300&width=300",
+    image: "/placeholder.svg",
     category: "Fitness",
     description: "Motivation not included, sweat stains guaranteed",
   },
@@ -72,7 +82,7 @@ const products = [
     id: 3,
     name: "Dog Parent Supremacy",
     price: 1199,
-    image: "/placeholder.svg?height=300&width=300",
+    image: "/placeholder.svg",
     category: "Pets",
     description: "Because your dog is better than most humans",
   },
@@ -80,7 +90,7 @@ const products = [
     id: 4,
     name: "Existential Crisis Hoodie",
     price: 1799,
-    image: "/placeholder.svg?height=300&width=300",
+    image: "/placeholder.svg",
     category: "Funny",
     description: "Perfect for 3 AM overthinking sessions",
   },
@@ -88,7 +98,7 @@ const products = [
     id: 5,
     name: "Corporate Slave Tee",
     price: 999,
-    image: "/placeholder.svg?height=300&width=300",
+    image: "/placeholder.svg",
     category: "Profession",
     description: "Wear your suffering with pride",
   },
@@ -116,9 +126,9 @@ const reviews = [
 ]
 
 export default function StreckHomepage() {
+  const { cartCount, setCartCount } = useContext(CartContext)
   const [currentSlide, setCurrentSlide] = useState(0)
   const [showWarning, setShowWarning] = useState(false)
-  const [cartCount, setCartCount] = useState(0)
 
   useEffect(() => {
     // GSAP Animations
@@ -160,7 +170,7 @@ export default function StreckHomepage() {
     }, 4000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [cartCount, setCartCount])
 
   const handleCategoryClick = (category: any) => {
     if (category.warning) {
@@ -168,11 +178,6 @@ export default function StreckHomepage() {
     } else {
       window.location.href = `/category/${category.id}`
     }
-  }
-
-  const addToCart = () => {
-    setCartCount((prev) => prev + 1)
-    gsap.to(".cart-icon", { scale: 1.3, duration: 0.2, yoyo: true, repeat: 1 })
   }
 
   return (
@@ -183,29 +188,10 @@ export default function StreckHomepage() {
         yourself ⚠️
       </div>
 
-      {/* Header */}
-      <header className="p-6 border-b border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="brand-title text-4xl font-black tracking-wider text-black">
-            <span className="jittery">STRECK</span>
-          </h1>
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              className="cart-icon bg-white border-black text-black hover:bg-black hover:text-white relative"
-              onClick={() => (window.location.href = "/checkout")}
-            >
-              <ShoppingCart className="w-5 h-5" />
-              {cartCount > 0 && (
-                <Badge className="absolute -top-2 -right-2 bg-red-600 text-white text-xs">{cartCount}</Badge>
-              )}
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* Hero Carousel */}
-      <section className="relative h-96 overflow-hidden">
+      <section className="relative h-[80vh] overflow-hidden">
         {categories.map((category, index) => (
           <div
             key={category.id}
@@ -213,8 +199,10 @@ export default function StreckHomepage() {
               index === currentSlide ? "translate-x-0" : index < currentSlide ? "-translate-x-full" : "translate-x-full"
             }`}
           >
-            <div className={`${category.color} h-full flex items-center justify-center relative overflow-hidden`}>
-              <div className="text-center z-10">
+            <div className="h-full flex items-center justify-center relative overflow-hidden">
+              <img src={category.image || '/placeholder.jpg'} alt={category.name} className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/50" />
+              <div className="relative z-10 text-center text-white p-4">
                 <category.icon className="w-16 h-16 mx-auto mb-4" />
                 <h2 className="text-5xl font-black mb-4">{category.name}</h2>
                 <p className="text-xl whitespace-pre-line max-w-md mx-auto leading-tight">{category.tagline}</p>
@@ -225,7 +213,6 @@ export default function StreckHomepage() {
                   EXPLORE {category.name.toUpperCase()}
                 </Button>
               </div>
-              <div className="absolute inset-0 bg-black/20"></div>
             </div>
           </div>
         ))}
@@ -245,44 +232,53 @@ export default function StreckHomepage() {
       </section>
 
       {/* Featured Products */}
-      <section className="py-16 px-6 fade-in-scroll bg-white">
-        <div className="max-w-7xl mx-auto">
+      <section className="py-16 fade-in-scroll bg-white">
+        <div className="w-full">
           <h2 className="text-4xl font-black text-center mb-12 text-black">
             STUFF YOU PROBABLY CAN'T AFFORD
             <span className="block text-lg font-normal text-gray-600 mt-2">(But will buy anyway because YOLO)</span>
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-            {products.map((product) => (
-              <Card
-                key={product.id}
-                className="bg-white border-black hover:border-red-600 transition-all group shadow-lg"
-              >
-                <CardContent className="p-4">
-                  <div className="cursor-pointer" onClick={() => (window.location.href = `/product/${product.id}`)}>
-                    <div className="aspect-square bg-gray-100 rounded-lg mb-4 overflow-hidden">
-                      <img
-                        src={product.image || "/placeholder.svg"}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                    </div>
-                    <Badge className="mb-2 bg-red-600 text-white">{product.category}</Badge>
-                    <h3 className="font-black text-lg mb-2 text-black">{product.name}</h3>
-                    <p className="text-gray-600 text-sm mb-4">{product.description}</p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-2xl font-black text-black">₹{product.price}</span>
-                      <Button size="sm" className="bg-black text-white hover:bg-red-600" onClick={addToCart}>
-                        BUY NOW
-                      </Button>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                      You really gonna buy this or just stare? 👀
-                    </div>
+          <div className="px-4">
+            <Swiper
+              modules={[Autoplay]}
+              spaceBetween={24}
+              slidesPerView={1.5}
+              centeredSlides={true}
+              autoplay={{
+                delay: 3000,
+                disableOnInteraction: false,
+              }}
+              speed={1000}
+              loop={true}
+              breakpoints={{
+                640: {
+                  slidesPerView: 2,
+                  spaceBetween: 20,
+                },
+                1024: {
+                  slidesPerView: 3,
+                  spaceBetween: 24,
+                },
+                1280: {
+                  slidesPerView: 4,
+                  spaceBetween: 24,
+                },
+              }}
+              className="pb-12"
+            >
+              {products.map((product) => (
+                <SwiperSlide key={product.id} className="h-full">
+                  <div className="h-full">
+                    <ProductCard 
+                      product={product} 
+                      showRating={false}
+                      className="h-full"
+                    />
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </SwiperSlide>
+              ))}
+            </Swiper>
           </div>
         </div>
       </section>

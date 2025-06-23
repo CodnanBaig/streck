@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ShoppingCart, ArrowLeft, Star, Heart, Share2, Minus, Plus } from "lucide-react"
 import { gsap } from "gsap"
+import { CartContext } from "@/components/providers"
 
 const productData = {
   1: {
@@ -14,9 +15,9 @@ const productData = {
     price: 1299,
     originalPrice: 1599,
     images: [
-      "/placeholder.svg?height=600&width=600",
-      "/placeholder.svg?height=600&width=600",
-      "/placeholder.svg?height=600&width=600",
+      "/placeholder.svg",
+      "/placeholder.svg",
+      "/placeholder.svg",
     ],
     category: "18+",
     description:
@@ -64,14 +65,14 @@ const productReviews = [
 ]
 
 export default function ProductPage({ params }: { params: { id: string } }) {
+  const { cartCount, setCartCount } = useContext(CartContext)
   const [selectedImage, setSelectedImage] = useState(0)
   const [selectedSize, setSelectedSize] = useState("")
   const [selectedColor, setSelectedColor] = useState("")
   const [quantity, setQuantity] = useState(1)
-  const [cartCount, setCartCount] = useState(0)
   const [isWishlisted, setIsWishlisted] = useState(false)
 
-  const product = productData[params.id as keyof typeof productData]
+  const product = productData[parseInt(params.id) as keyof typeof productData]
 
   useEffect(() => {
     if (product) {
@@ -118,39 +119,6 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="min-h-screen bg-white text-black">
-      {/* Header */}
-      <header className="p-6 border-b border-gray-200 bg-white sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-black text-black hover:bg-black hover:text-white"
-              onClick={() => window.history.back()}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-            <h1 className="text-2xl font-black">STRECK</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="border-black">
-              <Share2 className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              className="cart-icon bg-white border-black text-black hover:bg-black hover:text-white relative"
-              onClick={() => (window.location.href = "/checkout")}
-            >
-              <ShoppingCart className="w-5 h-5" />
-              {cartCount > 0 && (
-                <Badge className="absolute -top-2 -right-2 bg-red-600 text-white text-xs">{cartCount}</Badge>
-              )}
-            </Button>
-          </div>
-        </div>
-      </header>
-
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Product Images */}

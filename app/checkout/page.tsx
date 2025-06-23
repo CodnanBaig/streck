@@ -85,21 +85,7 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-white text-black">
       {/* Header */}
-      <header className="p-6 border-b border-gray-200 bg-white sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-black text-black hover:bg-black hover:text-white"
-            onClick={() => window.history.back()}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-black">STRECK CHECKOUT</h1>
-          <Badge className="bg-red-600 text-white">Almost There!</Badge>
-        </div>
-      </header>
+     
 
       <div className="checkout-content max-w-7xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
