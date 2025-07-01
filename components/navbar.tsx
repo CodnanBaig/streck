@@ -18,8 +18,17 @@ export function Navbar({ showBackButton = false, showShareButton = false }: Navb
   const isHomePage = pathname === "/"
   const { cartCount } = useContext(CartContext)
 
+  const navItems = [
+    { href: "/", label: "Home" },
+    { href: "/category/18plus", label: "18+" },
+    { href: "/category/fitness", label: "Fitness" },
+    { href: "/category/pets", label: "Pets" },
+    { href: "/category/funny", label: "Funny" },
+    { href: "/category/profession", label: "Profession" },
+  ]
+
   return (
-    <header className="p-6 border-b border-gray-200 bg-white sticky top-0 z-40">
+    <header className="p-3 border-b border-gray-200 bg-white sticky top-0 z-40">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4">
           {showBackButton && (
@@ -39,6 +48,22 @@ export function Navbar({ showBackButton = false, showShareButton = false }: Navb
             </h1>
           </Link>
         </div>
+        
+        {/* Navigation Items */}
+        <nav className="hidden md:flex items-center gap-6">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`font-semibold text-sm transition-colors hover:text-gray-600 ${
+                pathname === item.href ? "text-black border-b-2 border-black" : "text-gray-700"
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        
         <div className="flex items-center gap-2">
           {showShareButton && (
             <Button variant="outline" size="sm" className="border-black">

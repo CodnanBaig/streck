@@ -4,7 +4,7 @@ import { useState, useEffect, useContext } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingCart, Star, AlertTriangle, Dumbbell, Heart, Laugh, Briefcase } from "lucide-react"
+import { ShoppingCart, Star, AlertTriangle } from "lucide-react"
 import { gsap } from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -21,42 +21,32 @@ const categories = [
   {
     id: "18plus",
     name: "18+",
-    icon: AlertTriangle,
-    tagline: "Gaaliyan? Check.\nToxicity? Certified.\nDecency? Not found.",
-    image: "/placeholder.jpg",
+    image: "/18+ - Final.jpg",
     color: "bg-red-600",
     warning: true,
   },
   {
     id: "fitness",
     name: "Fitness",
-    icon: Dumbbell,
-    tagline: "Gym jaana hai?\nYa sirf flex karna hai?\nHum judge nahi karenge.",
-    image: "/placeholder.jpg",
+    image: "/Fitness - Final.jpg",
     color: "bg-gray-700",
   },
   {
     id: "pets",
     name: "Pets",
-    icon: Heart,
-    tagline: "Dogs > Humans\nCats = Attitude\nHamsters = Chaos",
-    image: "/placeholder.jpg",
+    image: "/Pets - Final.jpg",
     color: "bg-gray-600",
   },
   {
     id: "funny",
     name: "Funny",
-    icon: Laugh,
-    tagline: "Hasna hai?\nRona hai?\nDono kar sakte ho.",
-    image: "/placeholder.jpg",
+    image: "/Funny - Final.jpg",
     color: "bg-gray-800",
   },
   {
     id: "profession",
     name: "Profession",
-    icon: Briefcase,
-    tagline: "Office mein rebel?\nBoss ko impress?\nYahan sab milega.",
-    image: "/placeholder.jpg",
+    image: "/Profession - Final.jpg",
     color: "bg-gray-500",
   },
 ]
@@ -199,20 +189,15 @@ export default function StreckHomepage() {
               index === currentSlide ? "translate-x-0" : index < currentSlide ? "-translate-x-full" : "translate-x-full"
             }`}
           >
-            <div className="h-full flex items-center justify-center relative overflow-hidden">
-              <img src={category.image || '/placeholder.jpg'} alt={category.name} className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/50" />
-              <div className="relative z-10 text-center text-white p-4">
-                <category.icon className="w-16 h-16 mx-auto mb-4" />
-                <h2 className="text-5xl font-black mb-4">{category.name}</h2>
-                <p className="text-xl whitespace-pre-line max-w-md mx-auto leading-tight">{category.tagline}</p>
-                <Button
-                  className="mt-6 bg-white text-black hover:bg-gray-200 font-black"
-                  onClick={() => handleCategoryClick(category)}
-                >
-                  EXPLORE {category.name.toUpperCase()}
-                </Button>
-              </div>
+            <div 
+              className="h-full w-full cursor-pointer"
+              onClick={() => handleCategoryClick(category)}
+            >
+              <img 
+                src={category.image} 
+                alt={category.name} 
+                className="w-full h-full object-cover" 
+              />
             </div>
           </div>
         ))}
