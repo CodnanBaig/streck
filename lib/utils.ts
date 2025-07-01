@@ -5,46 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Error handling utilities
-export class AppError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number = 500,
-    public isOperational: boolean = true
-  ) {
-    super(message);
-    Object.setPrototypeOf(this, AppError.prototype);
-  }
-}
-
-export const handleError = (error: unknown): AppError => {
-  if (error instanceof AppError) {
-    return error;
-  }
-  
-  if (error instanceof Error) {
-    return new AppError(error.message);
-  }
-  
-  return new AppError('An unexpected error occurred');
-};
-
-// Validation utilities
-export const validateEmail = (email: string): boolean => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
-export const validatePhone = (phone: string): boolean => {
-  const phoneRegex = /^[0-9]{10}$/;
-  return phoneRegex.test(phone.replace(/\D/g, ''));
-};
-
-export const validatePincode = (pincode: string): boolean => {
-  const pincodeRegex = /^[0-9]{6}$/;
-  return pincodeRegex.test(pincode);
-};
-
 // Format utilities
 export const formatPrice = (price: number): string => {
   return new Intl.NumberFormat('en-IN', {
