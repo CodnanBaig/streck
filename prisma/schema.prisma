@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  image       String?
+  color       String   @default("bg-gray-600") // Tailwind color class
+  status      String   @default("active") // active, inactive, draft
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationship with products
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Float
+  originalPrice Float?
+  images      String   // JSON string array
+  category    String   // Keep for backward compatibility
+  categoryId  Int?     // New foreign key relationship
+  sizes       String   // JSON string array
+  colors      String   // JSON string array
+  rating      Float    @default(0)
+  reviews     Int      @default(0)
+  inStock     Boolean  @default(true)
+  status      String   @default("active") // active, inactive, draft
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationship with category
+  categoryRef Category? @relation(fields: [categoryId], references: [id])
+
+  @@map("products")
+}
+
+model Order {
+  id          Int      @id @default(autoincrement())
+  orderNumber String   @unique // #ORD-001, #ORD-002, etc.
+  
+  // Customer Information
+  customerName String
+  customerEmail String
+  customerPhone String
+  customerAddress String
+  
+  // Order Details
+  items       OrderItem[]
+  subtotal    Float
+  tax         Float    @default(0)
+  shipping    Float    @default(0)
+  total       Float
+  
+  // Status & Tracking
+  status      String   @default("pending") // pending, processing, shipped, delivered, cancelled
+  paymentStatus String @default("pending") // pending, paid, failed, refunded
+  paymentMethod String
+  
+  // Shipping
+  shippingAddress String
+  trackingNumber  String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  productName String
+  productPrice Float
+  quantity  Int
+  total     Float
+  
+  // Product details at time of order
+  productImage String
+  productSize  String?
+  productColor String?
+  
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@map("order_items")
+}

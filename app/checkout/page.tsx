@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,36 +8,61 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Trash2, Plus, Minus, CreditCard, Truck, Shield } from "lucide-react"
 import { gsap } from "gsap"
-
-const cartItems = [
-  {
-    id: 1,
-    name: "Toxic But Make It Fashion",
-    price: 1299,
-    image: "/placeholder.svg?height=100&width=100",
-    size: "M",
-    color: "Black",
-    quantity: 2,
-  },
-  {
-    id: 2,
-    name: "Gym Jaana Hai Bro",
-    price: 1499,
-    image: "/placeholder.svg?height=100&width=100",
-    size: "L",
-    color: "White",
-    quantity: 1,
-  },
-]
+import { CartContext } from "@/components/providers"
 
 export default function CheckoutPage() {
-  const [items, setItems] = useState(cartItems)
+  const { cartItems: contextCartItems, updateQuantity, clearCart } = useContext(CartContext)
   const [couponCode, setCouponCode] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState("")
   const [shippingMethod, setShippingMethod] = useState("standard")
   const [paymentMethod, setPaymentMethod] = useState("card")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Form data
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: ""
+  })
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  // Get cart items from context or sessionStorage as fallback
+  const [cartItems, setCartItems] = useState<any[]>([])
+
+  useEffect(() => {
+    // Use context cart items if available, otherwise fall back to sessionStorage
+    if (contextCartItems && contextCartItems.length > 0) {
+      setCartItems(contextCartItems)
+      console.log('Using context cart items:', contextCartItems)
+    } else {
+      // Fallback to sessionStorage
+      const sessionCart = sessionStorage.getItem('sessionCart')
+      if (sessionCart) {
+        try {
+          const parsedSessionCart = JSON.parse(sessionCart)
+          setCartItems(parsedSessionCart)
+          console.log('Using sessionStorage cart items:', parsedSessionCart)
+        } catch (error) {
+          console.error('Error parsing sessionStorage cart:', error)
+          setCartItems([])
+        }
+      } else {
+        setCartItems([])
+      }
+    }
+  }, [contextCartItems])
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Checkout page - cartItems:', cartItems)
+    console.log('Checkout page - cartItems length:', cartItems.length)
+  }, [cartItems])
+
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const discount = appliedCoupon === "CHAOS10" ? subtotal * 0.1 : 0
   const shipping = shippingMethod === "express" ? 200 : 0
   const total = subtotal - discount + shipping
@@ -46,11 +71,48 @@ export default function CheckoutPage() {
     gsap.fromTo(".checkout-content", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8 })
   }, [])
 
-  const updateQuantity = (id: number, newQuantity: number) => {
-    if (newQuantity === 0) {
-      setItems(items.filter((item) => item.id !== id))
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handleUpdateQuantity = (id: number, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      // Remove item
+      const updatedItems = cartItems.filter(item => item.id !== id)
+      setCartItems(updatedItems)
+      
+      // Update sessionStorage
+      sessionStorage.setItem('sessionCart', JSON.stringify(updatedItems))
+      
+      // Update context if available
+      if (updateQuantity) {
+        updateQuantity(id, 0)
+      }
     } else {
-      setItems(items.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item)))
+      // Update quantity
+      const updatedItems = cartItems.map(item =>
+        item.id === id ? { ...item, quantity: newQuantity } : item
+      )
+      setCartItems(updatedItems)
+      
+      // Update sessionStorage
+      sessionStorage.setItem('sessionCart', JSON.stringify(updatedItems))
+      
+      // Update context if available
+      if (updateQuantity) {
+        updateQuantity(id, newQuantity)
+      }
+    }
+  }
+
+  const handleClearCart = () => {
+    setCartItems([])
+    sessionStorage.removeItem('sessionCart')
+    if (clearCart) {
+      clearCart()
     }
   }
 
@@ -63,12 +125,81 @@ export default function CheckoutPage() {
     }
   }
 
-  const handleCheckout = () => {
-    alert("Payment successful! Your order will arrive when it arrives. Maybe.")
-    window.location.href = "/"
+  const handleCheckout = async () => {
+    // Validate form data
+    const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'pincode']
+    const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData])
+    
+    if (missingFields.length > 0) {
+      alert(`Please fill in all required fields: ${missingFields.join(', ')}`)
+      return
+    }
+
+    if (cartItems.length === 0) {
+      alert("Your cart is empty!")
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      // Prepare order data
+      const orderData = {
+        customerName: `${formData.firstName} ${formData.lastName}`,
+        customerEmail: formData.email,
+        customerPhone: formData.phone,
+        customerAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
+        shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
+        subtotal: subtotal,
+        tax: subtotal * 0.18, // 18% GST
+        shipping: shipping,
+        total: total,
+        paymentMethod: paymentMethod === "card" ? "Online Payment" : "UPI",
+        items: cartItems.map(item => ({
+          productId: item.id,
+          productName: item.name,
+          productPrice: item.price,
+          quantity: item.quantity,
+          total: item.price * item.quantity,
+          productImage: item.image,
+          productSize: item.size || null,
+          productColor: item.color || null
+        }))
+      }
+
+      // Create order via API
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData)
+      })
+
+      if (response.ok) {
+        const order = await response.json()
+        
+        // Clear cart
+        handleClearCart()
+        
+        // Show success message
+        alert(`Order placed successfully! Order number: ${order.orderNumber}`)
+        
+        // Redirect to home page
+        window.location.href = "/"
+      } else {
+        const error = await response.json()
+        alert(`Failed to place order: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error placing order:', error)
+      alert("Failed to place order. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  if (items.length === 0) {
+  if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -85,7 +216,21 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-white text-black">
       {/* Header */}
-     
+      <div className="bg-black text-white py-4">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              className="text-white hover:bg-white hover:text-black"
+              onClick={() => (window.location.href = "/")}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Continue Shopping
+            </Button>
+            <h1 className="text-2xl font-black">Checkout</h1>
+          </div>
+        </div>
+      </div>
 
       <div className="checkout-content max-w-7xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
@@ -96,11 +241,11 @@ export default function CheckoutPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <span>Your Questionable Choices</span>
-                  <Badge>{items.length} items</Badge>
+                  <Badge>{cartItems.length} items</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {items.map((item) => (
+                {cartItems.map((item) => (
                   <div key={item.id} className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg">
                     <img
                       src={item.image || "/placeholder.svg"}
@@ -110,28 +255,28 @@ export default function CheckoutPage() {
                     <div className="flex-1">
                       <h3 className="font-bold text-lg">{item.name}</h3>
                       <p className="text-gray-600">
-                        Size: {item.size} • Color: {item.color}
+                        {item.size && `Size: ${item.size}`} {item.color && `• Color: ${item.color}`}
                       </p>
                       <p className="font-bold text-lg">₹{item.price}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         className="p-1 hover:bg-gray-100 rounded"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
                       >
                         <Minus className="w-4 h-4" />
                       </button>
                       <span className="px-3 py-1 border border-gray-300 rounded font-bold">{item.quantity}</span>
                       <button
                         className="p-1 hover:bg-gray-100 rounded"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
                       >
                         <Plus className="w-4 h-4" />
                       </button>
                     </div>
                     <button
                       className="p-2 text-red-600 hover:bg-red-50 rounded"
-                      onClick={() => updateQuantity(item.id, 0)}
+                      onClick={() => handleUpdateQuantity(item.id, 0)}
                     >
                       <Trash2 className="w-5 h-5" />
                     </button>
@@ -148,43 +293,87 @@ export default function CheckoutPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" placeholder="Your actual name" className="border-black" />
+                    <Label htmlFor="firstName">First Name *</Label>
+                    <Input 
+                      id="firstName" 
+                      placeholder="Your actual name" 
+                      className="border-black"
+                      value={formData.firstName}
+                      onChange={(e) => handleInputChange("firstName", e.target.value)}
+                    />
                   </div>
                   <div>
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" placeholder="Not your Instagram handle" className="border-black" />
+                    <Label htmlFor="lastName">Last Name *</Label>
+                    <Input 
+                      id="lastName" 
+                      placeholder="Not your Instagram handle" 
+                      className="border-black"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange("lastName", e.target.value)}
+                    />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email *</Label>
                   <Input
                     id="email"
                     type="email"
                     placeholder="We promise not to spam... much"
                     className="border-black"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" placeholder="For delivery updates and existential calls" className="border-black" />
+                  <Label htmlFor="phone">Phone *</Label>
+                  <Input 
+                    id="phone" 
+                    placeholder="For delivery updates and existential calls" 
+                    className="border-black"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange("phone", e.target.value)}
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="address">Address</Label>
-                  <Input id="address" placeholder="Where you actually live" className="border-black" />
+                  <Label htmlFor="address">Address *</Label>
+                  <Input 
+                    id="address" 
+                    placeholder="Where you actually live" 
+                    className="border-black"
+                    value={formData.address}
+                    onChange={(e) => handleInputChange("address", e.target.value)}
+                  />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="city">City</Label>
-                    <Input id="city" placeholder="Your city" className="border-black" />
+                    <Label htmlFor="city">City *</Label>
+                    <Input 
+                      id="city" 
+                      placeholder="Your city" 
+                      className="border-black"
+                      value={formData.city}
+                      onChange={(e) => handleInputChange("city", e.target.value)}
+                    />
                   </div>
                   <div>
-                    <Label htmlFor="state">State</Label>
-                    <Input id="state" placeholder="Your state" className="border-black" />
+                    <Label htmlFor="state">State *</Label>
+                    <Input 
+                      id="state" 
+                      placeholder="Your state" 
+                      className="border-black"
+                      value={formData.state}
+                      onChange={(e) => handleInputChange("state", e.target.value)}
+                    />
                   </div>
                   <div>
-                    <Label htmlFor="pincode">Pincode</Label>
-                    <Input id="pincode" placeholder="6 digits" className="border-black" />
+                    <Label htmlFor="pincode">Pincode *</Label>
+                    <Input 
+                      id="pincode" 
+                      placeholder="6 digits" 
+                      className="border-black"
+                      value={formData.pincode}
+                      onChange={(e) => handleInputChange("pincode", e.target.value)}
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -283,7 +472,11 @@ export default function CheckoutPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
-                    <span>₹{subtotal}</span>
+                    <span>₹{subtotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tax (18% GST)</span>
+                    <span>₹{(subtotal * 0.18).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Shipping</span>
@@ -292,13 +485,13 @@ export default function CheckoutPage() {
                   {discount > 0 && (
                     <div className="flex justify-between text-green-600">
                       <span>Discount ({appliedCoupon})</span>
-                      <span>-₹{discount}</span>
+                      <span>-₹{discount.toLocaleString()}</span>
                     </div>
                   )}
                   <hr className="border-gray-200" />
                   <div className="flex justify-between text-xl font-black">
                     <span>Total</span>
-                    <span>₹{total}</span>
+                    <span>₹{total.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -322,13 +515,17 @@ export default function CheckoutPage() {
                   </div>
                   {appliedCoupon && (
                     <p className="coupon-success text-green-600 text-sm font-bold">
-                      Coupon applied! You saved ₹{discount}
+                      Coupon applied! You saved ₹{discount.toLocaleString()}
                     </p>
                   )}
                 </div>
 
-                <Button className="w-full bg-red-600 text-white hover:bg-red-700 text-lg py-3" onClick={handleCheckout}>
-                  COMPLETE ORDER
+                <Button 
+                  className="w-full bg-red-600 text-white hover:bg-red-700 text-lg py-3" 
+                  onClick={handleCheckout}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "PLACING ORDER..." : "COMPLETE ORDER"}
                 </Button>
 
                 <div className="text-xs text-gray-600 text-center">

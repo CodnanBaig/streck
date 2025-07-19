@@ -8,33 +8,23 @@ import { ShoppingCart, ArrowLeft, Star, Heart, Share2, Minus, Plus } from "lucid
 import { gsap } from "gsap"
 import { CartContext } from "@/components/providers"
 
-const productData = {
-  1: {
-    id: 1,
-    name: "Toxic But Make It Fashion",
-    price: 1299,
-    originalPrice: 1599,
-    images: [
-      "/placeholder.svg",
-      "/placeholder.svg",
-      "/placeholder.svg",
-    ],
-    category: "18+",
-    description:
-      "For when you want to be problematic but stylishly. This isn't just a t-shirt, it's a lifestyle choice that your therapist will definitely want to discuss.",
-    features: [
-      "100% Cotton (Softer than your ex's apologies)",
-      "Pre-shrunk (Unlike your standards)",
-      "Machine washable (Unlike your reputation)",
-      "Unisex fit (Because toxicity knows no gender)",
-    ],
-    sizes: ["XS", "S", "M", "L", "XL", "XXL"],
-    colors: ["Black", "White", "Blood Red"],
-    rating: 4.8,
-    reviews: 247,
-    inStock: true,
-  },
-  // Add more products as needed
+interface Product {
+  id: number
+  name: string
+  description: string | null
+  price: number
+  originalPrice: number | null
+  images: string[]
+  category: string
+  sizes: string[]
+  colors: string[]
+  rating: number
+  reviews: number
+  inStock: boolean
+  status: string
+  featured: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 const productReviews = [
@@ -65,22 +55,59 @@ const productReviews = [
 ]
 
 export default function ProductPage({ params }: { params: { id: string } }) {
-  const { cartCount, setCartCount } = useContext(CartContext)
+  const { addToCart } = useContext(CartContext)
+  const [product, setProduct] = useState<Product | null>(null)
+  const [loading, setLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState(0)
   const [selectedSize, setSelectedSize] = useState("")
   const [selectedColor, setSelectedColor] = useState("")
   const [quantity, setQuantity] = useState(1)
   const [isWishlisted, setIsWishlisted] = useState(false)
 
-  const product = productData[parseInt(params.id) as keyof typeof productData]
+  useEffect(() => {
+    fetchProduct()
+  }, [params.id])
+
+  const fetchProduct = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/products/${params.id}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        setProduct(data)
+        setSelectedColor(data.colors[0] || "")
+      } else if (response.status === 404) {
+        setProduct(null)
+      } else {
+        console.error('Failed to fetch product')
+        setProduct(null)
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error)
+      setProduct(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (product) {
-      setSelectedColor(product.colors[0])
       gsap.fromTo(".product-image", { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8 })
       gsap.fromTo(".product-info", { x: 50, opacity: 0 }, { x: 0, opacity: 1, duration: 0.8, delay: 0.3 })
     }
   }, [product])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <ShoppingCart className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p>Loading product...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!product) {
     return (
@@ -96,29 +123,126 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     )
   }
 
-  const addToCart = () => {
+  const handleAddToCart = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
     if (!selectedSize) {
       alert("Pick a size first, genius!")
       return
     }
-    setCartCount((prev) => prev + 1)
+    
+    // Add product to cart with size and color
+    addToCart({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.images[0] || "/placeholder.svg",
+      size: selectedSize,
+      color: selectedColor
+    })
+    
+    // Also store in sessionStorage as backup
+    const cartItem = {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.images[0] || "/placeholder.svg",
+      size: selectedSize,
+      color: selectedColor,
+      quantity: quantity
+    }
+    
+    const existingSessionCart = sessionStorage.getItem('sessionCart')
+    let sessionCart = existingSessionCart ? JSON.parse(existingSessionCart) : []
+    
+    const existingItem = sessionCart.find((item: any) => item.id === product.id)
+    if (existingItem) {
+      sessionCart = sessionCart.map((item: any) => 
+        item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
+      )
+    } else {
+      sessionCart.push(cartItem)
+    }
+    
+    sessionStorage.setItem('sessionCart', JSON.stringify(sessionCart))
+    
     gsap.to(".cart-icon", { scale: 1.3, duration: 0.2, yoyo: true, repeat: 1 })
+    
+    // Show feedback
+    if (e) {
+      const button = e.currentTarget as HTMLButtonElement
+      const originalText = button.textContent
+      button.textContent = "ADDED!"
+      button.style.backgroundColor = "#22c55e"
+      
+      setTimeout(() => {
+        button.textContent = originalText
+        button.style.backgroundColor = ""
+      }, 1000)
+    }
   }
 
-  const buyNow = () => {
+  const buyNow = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
     if (!selectedSize) {
       alert("Pick a size first!")
       return
     }
     // Add to cart and redirect to checkout
-    addToCart()
+    handleAddToCart()
     setTimeout(() => {
       window.location.href = "/checkout"
     }, 500)
   }
 
+  // Calculate discount percentage
+  const discountPercentage = product.originalPrice && product.originalPrice > product.price 
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+    : 0
+
   return (
     <div className="min-h-screen bg-white text-black">
+      {/* Navigation */}
+      <nav className="bg-white border-b-2 border-black p-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <Button
+            variant="ghost"
+            onClick={() => window.history.back()}
+            className="flex items-center gap-2 hover:bg-gray-100"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => setIsWishlisted(!isWishlisted)}>
+              <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
+            </Button>
+            <Button variant="ghost">
+              <Share2 className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => (window.location.href = "/checkout")}
+              className="relative"
+            >
+              <ShoppingCart className="w-5 h-5 cart-icon" />
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+      </nav>
+
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Product Images */}
@@ -174,9 +298,11 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               {product.originalPrice && (
                 <span className="text-xl text-gray-500 line-through">₹{product.originalPrice}</span>
               )}
-              <Badge className="bg-green-600 text-white">
-                {Math.round(((product.originalPrice! - product.price) / product.originalPrice!) * 100)}% OFF
-              </Badge>
+              {discountPercentage > 0 && (
+                <Badge className="bg-green-600 text-white">
+                  {discountPercentage}% OFF
+                </Badge>
+              )}
             </div>
 
             <p className="text-gray-700 mb-8 text-lg leading-relaxed">{product.description}</p>
@@ -238,71 +364,80 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
+            {/* Stock Status */}
+            <div className="mb-6">
+              {product.inStock ? (
+                <Badge className="bg-green-100 text-green-800">✓ In Stock</Badge>
+              ) : (
+                <Badge className="bg-red-100 text-red-800">✗ Out of Stock</Badge>
+              )}
+            </div>
+
             {/* Action Buttons */}
             <div className="flex gap-4 mb-8">
-              <Button className="flex-1 bg-red-600 text-white hover:bg-red-700 text-lg py-3" onClick={buyNow}>
+              <Button 
+                type="button"
+                className="flex-1 bg-red-600 text-white hover:bg-red-700 text-lg py-3" 
+                onClick={buyNow}
+                disabled={!product.inStock}
+              >
                 BUY NOW
               </Button>
               <Button
+                type="button"
                 variant="outline"
                 className="flex-1 border-black text-black hover:bg-black hover:text-white text-lg py-3"
-                onClick={addToCart}
+                onClick={handleAddToCart}
+                disabled={!product.inStock}
               >
+                <ShoppingCart className="w-4 h-4 mr-2" />
                 ADD TO CART
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className={`border-black ${isWishlisted ? "bg-red-600 text-white" : "text-black hover:bg-black hover:text-white"}`}
-                onClick={() => setIsWishlisted(!isWishlisted)}
-              >
-                <Heart className={`w-5 h-5 ${isWishlisted ? "fill-current" : ""}`} />
               </Button>
             </div>
 
-            {/* Features */}
-            <div className="mb-8">
-              <h3 className="font-black mb-4">Why This Doesn't Suck:</h3>
-              <ul className="space-y-2">
-                {product.features.map((feature, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="text-red-600 font-bold">•</span>
-                    <span>{feature}</span>
-                  </li>
-                ))}
+            {/* Product Features */}
+            <div className="border-t pt-6">
+              <h3 className="font-black mb-4">Why You'll Love This (Or Hate It)</h3>
+              <ul className="space-y-2 text-gray-700">
+                <li>• 100% Cotton (Softer than your ex's apologies)</li>
+                <li>• Pre-shrunk (Unlike your standards)</li>
+                <li>• Machine washable (Unlike your reputation)</li>
+                <li>• Unisex fit (Because chaos knows no gender)</li>
               </ul>
             </div>
           </div>
         </div>
 
         {/* Reviews Section */}
-        <section className="mt-16 border-t border-gray-200 pt-16">
-          <h2 className="text-3xl font-black mb-8">What People Are Saying</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="mt-16 border-t pt-12">
+          <h2 className="text-3xl font-black mb-8">What Fellow Rebels Say</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {productReviews.map((review) => (
-              <Card key={review.id} className="bg-white border-gray-200">
+              <Card key={review.id} className="border-black">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold">{review.name}</span>
-                      {review.verified && <Badge className="bg-green-600 text-white text-xs">Verified</Badge>}
+                    <div className="flex items-center">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`w-4 h-4 ${
+                            i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                          }`}
+                        />
+                      ))}
                     </div>
-                    <span className="text-sm text-gray-500">{review.date}</span>
+                    {review.verified && <Badge className="bg-green-100 text-green-800 text-xs">Verified</Badge>}
                   </div>
-                  <div className="flex items-center mb-4">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-4 h-4 ${i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
-                      />
-                    ))}
+                  <p className="text-gray-700 mb-4 italic">"{review.text}"</p>
+                  <div className="border-t pt-4">
+                    <p className="font-bold">{review.name}</p>
+                    <p className="text-sm text-gray-600">{review.date}</p>
                   </div>
-                  <p className="text-gray-700">"{review.text}"</p>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </section>
+        </div>
       </div>
     </div>
   )

@@ -51,48 +51,24 @@ const categories = [
   },
 ]
 
-const products = [
-  {
-    id: 1,
-    name: "Toxic But Make It Fashion",
-    price: 1299,
-    image: "/placeholder.svg",
-    category: "18+",
-    description: "For when you want to be problematic but stylishly",
-  },
-  {
-    id: 2,
-    name: "Gym Jaana Hai Bro",
-    price: 1499,
-    image: "/placeholder.svg",
-    category: "Fitness",
-    description: "Motivation not included, sweat stains guaranteed",
-  },
-  {
-    id: 3,
-    name: "Dog Parent Supremacy",
-    price: 1199,
-    image: "/placeholder.svg",
-    category: "Pets",
-    description: "Because your dog is better than most humans",
-  },
-  {
-    id: 4,
-    name: "Existential Crisis Hoodie",
-    price: 1799,
-    image: "/placeholder.svg",
-    category: "Funny",
-    description: "Perfect for 3 AM overthinking sessions",
-  },
-  {
-    id: 5,
-    name: "Corporate Slave Tee",
-    price: 999,
-    image: "/placeholder.svg",
-    category: "Profession",
-    description: "Wear your suffering with pride",
-  },
-]
+interface Product {
+  id: number
+  name: string
+  description: string | null
+  price: number
+  originalPrice: number | null
+  images: string[]
+  category: string
+  sizes: string[]
+  colors: string[]
+  rating: number
+  reviews: number
+  inStock: boolean
+  status: string
+  featured: boolean
+  createdAt: string
+  updatedAt: string
+}
 
 const reviews = [
   {
@@ -116,9 +92,35 @@ const reviews = [
 ]
 
 export default function StreckHomepage() {
-  const { cartCount, setCartCount } = useContext(CartContext)
+  const { cartCount } = useContext(CartContext)
   const [currentSlide, setCurrentSlide] = useState(0)
   const [showWarning, setShowWarning] = useState(false)
+  const [products, setProducts] = useState<Product[]>([])
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch products from API
+  useEffect(() => {
+    fetchProducts()
+  }, [])
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/products?status=active')
+      if (response.ok) {
+        const data = await response.json()
+        setProducts(data)
+        setFeaturedProducts(data.filter((p: Product) => p.featured))
+      } else {
+        console.error('Failed to fetch products')
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     // GSAP Animations
@@ -224,74 +226,147 @@ export default function StreckHomepage() {
             <span className="block text-lg font-normal text-gray-600 mt-2">(But will buy anyway because YOLO)</span>
           </h2>
 
-          <div className="px-4">
-            <Swiper
-              modules={[Autoplay]}
-              spaceBetween={24}
-              slidesPerView={1.5}
-              centeredSlides={true}
-              autoplay={{
-                delay: 3000,
-                disableOnInteraction: false,
-              }}
-              speed={1000}
-              loop={true}
-              breakpoints={{
-                640: {
-                  slidesPerView: 2,
-                  spaceBetween: 20,
-                },
-                1024: {
-                  slidesPerView: 3,
-                  spaceBetween: 24,
-                },
-                1280: {
-                  slidesPerView: 4,
-                  spaceBetween: 24,
-                },
-              }}
-              className="pb-12"
-            >
-              {products.map((product) => (
-                <SwiperSlide key={product.id} className="h-full">
-                  <div className="h-full">
-                    <ProductCard 
-                      product={product} 
-                      showRating={false}
-                      className="h-full"
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="text-center">
+                <ShoppingCart className="w-8 h-8 animate-spin mx-auto mb-4" />
+                <p>Loading awesome products...</p>
+              </div>
+            </div>
+          ) : featuredProducts.length > 0 ? (
+            <div className="px-4">
+              <Swiper
+                modules={[Autoplay]}
+                spaceBetween={24}
+                slidesPerView={1.5}
+                centeredSlides={true}
+                autoplay={{
+                  delay: 3000,
+                  disableOnInteraction: false,
+                }}
+                speed={1000}
+                loop={true}
+                breakpoints={{
+                  640: {
+                    slidesPerView: 2,
+                    spaceBetween: 20,
+                  },
+                  1024: {
+                    slidesPerView: 3,
+                    spaceBetween: 24,
+                  },
+                  1280: {
+                    slidesPerView: 4,
+                    spaceBetween: 24,
+                  },
+                }}
+                className="product-carousel"
+              >
+                {featuredProducts.map((product) => (
+                  <SwiperSlide key={product.id}>
+                    <ProductCard
+                      id={product.id}
+                      name={product.name}
+                      price={product.price}
+                      originalPrice={product.originalPrice}
+                      image={product.images[0] || "/placeholder.svg"}
+                      category={product.category}
+                      description={product.description || ""}
+                      rating={product.rating}
+                      reviews={product.reviews}
                     />
-                  </div>
-                </SwiperSlide>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <ShoppingCart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No featured products yet</h3>
+              <p className="text-gray-600">Check back soon for amazing deals!</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* All Products Section */}
+      <section className="py-16 fade-in-scroll bg-gray-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <h2 className="text-4xl font-black text-center mb-12 text-black">
+            THE FULL CHAOS COLLECTION
+            <span className="block text-lg font-normal text-gray-600 mt-2">(Every product is a personality crisis waiting to happen)</span>
+          </h2>
+
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="text-center">
+                <ShoppingCart className="w-8 h-8 animate-spin mx-auto mb-4" />
+                <p>Loading more chaos...</p>
+              </div>
+            </div>
+          ) : products.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {products.slice(0, 8).map((product) => (
+                <ProductCard
+                  key={product.id}
+                  id={product.id}
+                  name={product.name}
+                  price={product.price}
+                  originalPrice={product.originalPrice}
+                  image={product.images[0] || "/placeholder.svg"}
+                  category={product.category}
+                  description={product.description || ""}
+                  rating={product.rating}
+                  reviews={product.reviews}
+                />
               ))}
-            </Swiper>
-          </div>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <ShoppingCart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No products available</h3>
+              <p className="text-gray-600">We're working on stocking up the chaos!</p>
+            </div>
+          )}
+
+          {products.length > 8 && (
+            <div className="text-center mt-12">
+              <Button className="bg-red-600 text-white hover:bg-red-700 text-lg px-8 py-3">
+                VIEW ALL PRODUCTS
+                <span className="ml-2">→</span>
+              </Button>
+            </div>
+          )}
         </div>
       </section>
 
       {/* Reviews Section */}
-      <section className="py-16 px-6 bg-gray-50 fade-in-scroll">
-        <div className="max-w-4xl mx-auto">
+      <section className="py-16 fade-in-scroll bg-white">
+        <div className="max-w-7xl mx-auto px-6">
           <h2 className="text-4xl font-black text-center mb-12 text-black">
             WHAT OUR VICTIMS SAY
-            <span className="block text-lg font-normal text-gray-600 mt-2">(Totally not fake reviews)</span>
+            <span className="block text-lg font-normal text-gray-600 mt-2">(Testimonials from fellow chaos agents)</span>
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {reviews.map((review, index) => (
-              <Card key={index} className="bg-white border-gray-200 shadow-lg">
+              <Card key={index} className="border-black hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-center mb-4">
-                    <div className="flex">
-                      {[...Array(review.rating)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      ))}
-                    </div>
-                    <span className="ml-2 text-sm text-gray-600">@{review.name}</span>
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`w-4 h-4 ${
+                          i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+                        }`}
+                      />
+                    ))}
                   </div>
-                  <p className="text-gray-800 mb-4">"{review.text}"</p>
-                  <Badge variant="outline" className="text-xs border-black text-black">
-                    {review.product}
-                  </Badge>
+                  <p className="text-gray-700 mb-4 italic">"{review.text}"</p>
+                  <div className="border-t pt-4">
+                    <p className="font-bold text-black">{review.name}</p>
+                    <p className="text-sm text-gray-600">Bought: {review.product}</p>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -325,33 +400,33 @@ export default function StreckHomepage() {
         </div>
       </footer>
 
-      {/* 18+ Warning Modal */}
+      {/* Warning Modal */}
       {showWarning && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <Card className="bg-white border-red-600 border-2 max-w-md w-full shadow-2xl">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="max-w-md mx-4 border-red-600 border-2">
             <CardContent className="p-6 text-center">
-              <AlertTriangle className="w-16 h-16 mx-auto mb-4 text-red-600" />
-              <h3 className="text-2xl font-black mb-4 text-black">ADULTS ONLY!</h3>
-              <p className="mb-6 text-gray-800">
-                This section contains explicit humor, dark jokes, and content that might offend your mom. Proceed only
-                if you can handle the chaos.
+              <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+              <h3 className="text-xl font-black mb-4">⚠️ ADULT CONTENT WARNING ⚠️</h3>
+              <p className="text-gray-700 mb-6">
+                This section contains explicit humor and adult themes. Viewer discretion advised. By continuing, you
+                confirm you're 18+ and have questionable taste in humor.
               </p>
               <div className="flex gap-4">
                 <Button
-                  className="flex-1 bg-red-600 text-white hover:bg-red-700"
+                  variant="outline"
+                  onClick={() => setShowWarning(false)}
+                  className="flex-1 border-red-600 text-red-600 hover:bg-red-50"
+                >
+                  I'm Too Pure
+                </Button>
+                <Button
                   onClick={() => {
                     setShowWarning(false)
                     window.location.href = "/category/18plus"
                   }}
+                  className="flex-1 bg-red-600 text-white hover:bg-red-700"
                 >
-                  I'M READY FOR CHAOS
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 border-black text-black hover:bg-black hover:text-white"
-                  onClick={() => setShowWarning(false)}
-                >
-                  NEVERMIND
+                  I Can Handle It
                 </Button>
               </div>
             </CardContent>
