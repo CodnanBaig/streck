@@ -19,7 +19,8 @@ import {
   Package,
   DollarSign,
   TrendingUp,
-  AlertTriangle
+  AlertTriangle,
+  Upload
 } from "lucide-react"
 import { ImageUpload } from "@/components/ui/image-upload"
 import { useToast } from "@/hooks/use-toast"
@@ -402,14 +403,15 @@ export default function AdminProducts() {
             <p className="text-gray-600 mt-2">Manage your product inventory</p>
           </div>
           
-          {/* Add Product Modal */}
-          <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-black hover:bg-gray-800">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Product
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            {/* Add Product Modal */}
+            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-black hover:bg-gray-800">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Product
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center">
@@ -658,6 +660,16 @@ export default function AdminProducts() {
               </div>
             </DialogContent>
           </Dialog>
+            
+            {/* Bulk Upload Button */}
+            <Button 
+              variant="outline"
+              onClick={() => window.location.href = '/admin/products/bulk-upload'}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Bulk Upload
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}

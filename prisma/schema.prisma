@@ -93,9 +93,15 @@ model Order {
   // Order Details
   items       OrderItem[]
   subtotal    Float
+  discount    Float    @default(0)
+  couponCode  String?
+  couponId    Int?
   tax         Float    @default(0)
   shipping    Float    @default(0)
   total       Float
+  
+  // Coupon relationship
+  coupon      Coupon?  @relation(fields: [couponId], references: [id])
   
   // Status & Tracking
   status      String   @default("pending") // pending, processing, shipped, delivered, cancelled
@@ -149,4 +155,29 @@ model Customer {
   orders      Order[]
   
   @@map("customers")
+}
+
+model Coupon {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  description String?
+  discountType String  // percentage, fixed_amount
+  discountValue Float
+  minimumOrderAmount Float @default(0)
+  maximumDiscount Float?
+  usageLimit Int?      // null = unlimited
+  usedCount Int        @default(0)
+  validFrom DateTime
+  validUntil DateTime
+  isActive   Boolean   @default(true)
+  appliesTo  String    @default("all") // all, categories, products
+  applicableItems String? // JSON array of category/product IDs
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  
+  // Relationships
+  orders     Order[]
+  
+  @@map("coupons")
 }

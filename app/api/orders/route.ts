@@ -60,6 +60,9 @@ export async function POST(request: NextRequest) {
       customerAddress,
       items,
       subtotal,
+      discount,
+      couponCode,
+      couponId,
       tax,
       shipping,
       total,
@@ -100,6 +103,9 @@ export async function POST(request: NextRequest) {
         customerPhone,
         customerAddress,
         subtotal: parseFloat(subtotal) || 0,
+        discount: parseFloat(discount) || 0,
+        couponCode: couponCode || null,
+        couponId: couponId ? parseInt(couponId) : null,
         tax: parseFloat(tax) || 0,
         shipping: parseFloat(shipping) || 0,
         total: parseFloat(total) || 0,
@@ -127,6 +133,18 @@ export async function POST(request: NextRequest) {
         }
       }
     })
+
+    // Update coupon usage count if coupon was used
+    if (couponId) {
+      await prisma.coupon.update({
+        where: { id: parseInt(couponId) },
+        data: {
+          usedCount: {
+            increment: 1
+          }
+        }
+      })
+    }
 
     // Format response
     const formattedOrder = {

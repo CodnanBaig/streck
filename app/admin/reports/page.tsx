@@ -1,9 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { 
   FileText,
   Download,
@@ -14,131 +17,124 @@ import {
   Users,
   Package,
   Filter,
-  RefreshCw
+  RefreshCw,
+  Loader2,
+  BarChart3
 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function AdminReports() {
-  const [selectedPeriod, setSelectedPeriod] = useState("month")
+  const { toast } = useToast()
+  const [exporting, setExporting] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [stats, setStats] = useState<any>(null)
+  const [filters, setFilters] = useState({
+    startDate: '',
+    endDate: '',
+    status: 'all',
+    reportType: 'all'
+  })
   
+  // Fetch stats on component mount
+  useEffect(() => {
+    fetchStats()
+  }, [])
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/admin/analytics?timeRange=30d')
+      if (response.ok) {
+        const data = await response.json()
+        setStats(data)
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const reportTypes = [
     {
       title: "Sales Report",
-      description: "Comprehensive sales data and trends",
+      description: "Comprehensive sales data with product details, quantities, and revenue",
       icon: DollarSign,
       color: "bg-green-500",
-      lastGenerated: "2 hours ago",
-      status: "ready"
+      type: "sales",
+      fields: ["Date", "Order Number", "Customer", "Product", "Quantity", "Price", "Total"]
     },
     {
       title: "Orders Report", 
-      description: "Order status, fulfillment, and delivery metrics",
+      description: "Complete order information with customer details and status tracking",
       icon: ShoppingCart,
       color: "bg-blue-500",
-      lastGenerated: "1 day ago",
-      status: "ready"
+      type: "orders",
+      fields: ["Order Number", "Customer", "Status", "Payment", "Total", "Items"]
     },
     {
       title: "Customer Report",
-      description: "Customer demographics and behavior analysis",
+      description: "Customer database with order history and spending analysis",
       icon: Users,
       color: "bg-purple-500",
-      lastGenerated: "3 hours ago",
-      status: "ready"
+      type: "customers",
+      fields: ["Name", "Email", "Phone", "Orders", "Total Spent", "Status"]
     },
     {
-      title: "Product Performance",
-      description: "Best sellers, inventory, and product insights",
+      title: "Product Report",
+      description: "Product catalog with pricing, inventory, and performance metrics",
       icon: Package,
       color: "bg-orange-500",
-      lastGenerated: "5 hours ago",
-      status: "ready"
-    },
-    {
-      title: "Financial Summary",
-      description: "Revenue, expenses, and profit analysis",
-      icon: TrendingUp,
-      color: "bg-indigo-500",
-      lastGenerated: "Generating...",
-      status: "processing"
-    },
-    {
-      title: "Marketing Report",
-      description: "Campaign performance and ROI metrics",
-      icon: FileText,
-      color: "bg-pink-500",
-      lastGenerated: "Never",
-      status: "pending"
+      type: "products",
+      fields: ["Name", "Category", "Product Type", "Price", "Stock", "Status", "Rating", "Sizes", "Colors", "Image Links"]
     }
   ]
 
-  const quickStats = [
-    {
-      label: "Total Reports Generated",
-      value: "1,247",
-      change: "+12%",
-      period: "This month"
-    },
-    {
-      label: "Most Downloaded",
-      value: "Sales Report",
-      change: "156 downloads",
-      period: "This month"
-    },
-    {
-      label: "Automated Reports",
-      value: "8",
-      change: "Active",
-      period: "Running daily"
-    },
-    {
-      label: "Storage Used",
-      value: "2.4 GB",
-      change: "67% of limit",
-      period: "Total usage"
-    }
-  ]
+  const handleExport = async (reportType: string) => {
+    try {
+      setExporting(reportType)
+      const response = await fetch('/api/admin/reports/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reportType,
+          filters: {
+            startDate: filters.startDate,
+            endDate: filters.endDate,
+            status: filters.status === 'all' ? undefined : filters.status
+          }
+        })
+      })
 
-  const recentReports = [
-    {
-      name: "Monthly Sales Summary - January 2024",
-      type: "Sales",
-      size: "2.4 MB",
-      generated: "2024-01-31 09:15 AM",
-      downloads: 23
-    },
-    {
-      name: "Customer Acquisition Report - Q4 2023",
-      type: "Customer",
-      size: "1.8 MB", 
-      generated: "2024-01-30 02:30 PM",
-      downloads: 15
-    },
-    {
-      name: "Product Performance - January 2024",
-      type: "Product",
-      size: "3.1 MB",
-      generated: "2024-01-29 11:45 AM",
-      downloads: 31
-    },
-    {
-      name: "Orders Fulfillment Report - Week 4",
-      type: "Orders",
-      size: "1.2 MB",
-      generated: "2024-01-28 04:20 PM",
-      downloads: 8
-    }
-  ]
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "ready":
-        return <Badge className="bg-green-100 text-green-800">Ready</Badge>
-      case "processing":
-        return <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>
-      case "pending":
-        return <Badge className="bg-gray-100 text-gray-800">Pending</Badge>
-      default:
-        return <Badge variant="secondary">Unknown</Badge>
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = response.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || `${reportType}-report.csv`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        
+        toast({
+          title: "Success!",
+          description: `${reportType} report downloaded successfully!`,
+        })
+      } else {
+        throw new Error('Export failed')
+      }
+    } catch (error) {
+      console.error('Export error:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to export report",
+      })
+    } finally {
+      setExporting(null)
     }
   }
 
@@ -146,45 +142,133 @@ export default function AdminReports() {
     <div className="p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Reports</h1>
-            <p className="text-gray-600 mt-2">Generate and download business reports</p>
+            <p className="text-gray-600 mt-2">Generate and download business reports in CSV format</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline">
-              <Filter className="w-4 h-4 mr-2" />
-              Filter
-            </Button>
-            <Button variant="outline">
-              <RefreshCw className="w-4 h-4 mr-2" />
+            <Button variant="outline" onClick={fetchStats} disabled={loading}>
+              {loading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
               Refresh
             </Button>
           </div>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {quickStats.map((stat, index) => (
-            <Card key={index}>
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card>
               <CardContent className="p-6">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm text-green-600">{stat.change}</span>
-                    <span className="text-xs text-gray-500">{stat.period}</span>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                    <p className="text-2xl font-bold text-gray-900">₹{stats.revenue.current.toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 bg-green-100 rounded-full">
+                    <DollarSign className="w-6 h-6 text-green-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Orders</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.orders.current}</p>
+                  </div>
+                  <div className="p-3 bg-blue-100 rounded-full">
+                    <ShoppingCart className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Customers</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.customers.total}</p>
+                  </div>
+                  <div className="p-3 bg-purple-100 rounded-full">
+                    <Users className="w-6 h-6 text-purple-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.conversion.current}%</p>
+                  </div>
+                  <div className="p-3 bg-orange-100 rounded-full">
+                    <BarChart3 className="w-6 h-6 text-orange-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Filters */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Report Filters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="processing">Processing</SelectItem>
+                    <SelectItem value="shipped">Shipped</SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Report Types */}
         <div className="mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Available Reports</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {reportTypes.map((report, index) => (
               <Card key={index} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
@@ -192,78 +276,87 @@ export default function AdminReports() {
                     <div className={`p-3 rounded-full ${report.color} text-white`}>
                       <report.icon className="w-6 h-6" />
                     </div>
-                    {getStatusBadge(report.status)}
+                    <Badge className="bg-green-100 text-green-800">Ready</Badge>
                   </div>
                   
                   <h3 className="font-semibold text-gray-900 mb-2">{report.title}</h3>
                   <p className="text-sm text-gray-600 mb-4">{report.description}</p>
                   
-                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                    <span>Last generated: {report.lastGenerated}</span>
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Includes:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {report.fields.map((field, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
+                          {field}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                   
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      className="flex-1"
-                      disabled={report.status === "processing"}
-                    >
-                      <Download className="w-4 h-4 mr-1" />
-                      {report.status === "processing" ? "Generating..." : "Generate"}
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <Calendar className="w-4 h-4" />
-                    </Button>
-                  </div>
+                  <Button 
+                    className="w-full"
+                    onClick={() => handleExport(report.type)}
+                    disabled={exporting === report.type}
+                  >
+                    {exporting === report.type ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
+                    {exporting === report.type ? "Exporting..." : "Export CSV"}
+                  </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
         </div>
 
-        {/* Recent Reports */}
+        {/* Usage Guide */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Reports</CardTitle>
+            <CardTitle>How to Use Reports</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b">
-                  <tr>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Report Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Type</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Size</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Generated</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Downloads</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-900">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {recentReports.map((report, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center">
-                          <FileText className="w-4 h-4 text-gray-400 mr-2" />
-                          <span className="font-medium text-gray-900">{report.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge variant="secondary">{report.type}</Badge>
-                      </td>
-                      <td className="py-3 px-4 text-gray-600">{report.size}</td>
-                      <td className="py-3 px-4 text-gray-600">{report.generated}</td>
-                      <td className="py-3 px-4 text-gray-600">{report.downloads}</td>
-                      <td className="py-3 px-4">
-                        <Button size="sm" variant="outline">
-                          <Download className="w-4 h-4 mr-1" />
-                          Download
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                  <span className="text-blue-600 text-sm font-medium">1</span>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">Set Filters (Optional)</h4>
+                  <p className="text-sm text-gray-600">Use the filters above to narrow down your data by date range and status.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                  <span className="text-blue-600 text-sm font-medium">2</span>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">Choose Report Type</h4>
+                  <p className="text-sm text-gray-600">Select the type of report you need from the available options above.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-0.5">
+                  <span className="text-blue-600 text-sm font-medium">3</span>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900">Export CSV</h4>
+                  <p className="text-sm text-gray-600">Click the "Export CSV" button to download your report. The file will be automatically saved to your downloads folder.</p>
+                </div>
+              </div>
+              
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">💡 Tips</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Sales reports include detailed product-level data for analysis</li>
+                  <li>• Customer reports show order history and spending patterns</li>
+                  <li>• Use date filters to focus on specific time periods</li>
+                  <li>• CSV files can be opened in Excel, Google Sheets, or any spreadsheet software</li>
+                </ul>
+              </div>
             </div>
           </CardContent>
         </Card>

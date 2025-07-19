@@ -46,6 +46,9 @@ interface Order {
   customerPhone: string
   customerAddress: string
   subtotal: number
+  discount: number
+  couponCode: string | null
+  couponId: number | null
   tax: number
   shipping: number
   total: number
@@ -458,7 +461,17 @@ export default function AdminOrders() {
                       Subtotal: ₹{(selectedOrder.subtotal || 0).toLocaleString()} | 
                       Tax: ₹{(selectedOrder.tax || 0).toLocaleString()} | 
                       Shipping: ₹{(selectedOrder.shipping || 0).toLocaleString()}
+                      {selectedOrder.discount > 0 && (
+                        <span className="text-green-600">
+                          {' | '}Discount: -₹{(selectedOrder.discount || 0).toLocaleString()}
+                        </span>
+                      )}
                     </p>
+                    {selectedOrder.couponCode && (
+                      <p className="text-xs text-gray-500">
+                        Coupon: {selectedOrder.couponCode}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -513,6 +526,25 @@ export default function AdminOrders() {
                     </div>
                   )}
                 </div>
+
+                {/* Coupon Information */}
+                {selectedOrder.couponCode && (
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3">Coupon Applied</h4>
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-green-800">{selectedOrder.couponCode}</p>
+                          <p className="text-sm text-green-600">Discount Applied</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-green-800">-₹{(selectedOrder.discount || 0).toLocaleString()}</p>
+                          <p className="text-xs text-green-600">Saved</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Order Items */}
                 <div>

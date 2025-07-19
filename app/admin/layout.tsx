@@ -18,7 +18,8 @@ import {
   X,
   LogOut,
   Home,
-  ChevronDown
+  ChevronDown,
+  Tag
 } from "lucide-react"
 
 const sidebarItems = [
@@ -35,6 +36,10 @@ const sidebarItems = [
       {
         title: "All Products",
         href: "/admin/products"
+      },
+      {
+        title: "Bulk Upload",
+        href: "/admin/products/bulk-upload"
       },
       {
         title: "Product Types",
@@ -56,6 +61,11 @@ const sidebarItems = [
     title: "Categories",
     href: "/admin/categories",
     icon: ShoppingBag
+  },
+  {
+    title: "Coupons",
+    href: "/admin/coupons",
+    icon: Tag
   },
   {
     title: "Analytics",
@@ -147,10 +157,11 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-[100vh] bg-gray-50 flex">
         {/* Sidebar */}
-        <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
-        <div className="flex items-center justify-between h-16 px-4 bg-gray-800">
+        <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
+        {/* Header */}
+        <div className="flex items-center justify-between h-16 px-4 bg-gray-800 flex-shrink-0">
           <Link href="/admin" className="flex items-center">
             <h1 className="text-xl font-bold text-white">STRECK Admin</h1>
           </Link>
@@ -162,8 +173,9 @@ export default function AdminLayout({
           </button>
         </div>
         
-        <nav className="mt-8 px-4">
-          <div className="space-y-2">
+        {/* Navigation - Scrollable middle section */}
+        <nav className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+          <div className="space-y-2 pb-4">
             {sidebarItems.map((item) => {
               const isActive = pathname === item.href || (item.submenu && item.submenu.some(sub => sub.href === pathname))
               const isExpanded = expandedMenus.includes(item.title)
@@ -230,7 +242,7 @@ export default function AdminLayout({
         </nav>
 
         {/* Bottom section */}
-        <div className="absolute bottom-0 w-full p-4 border-t border-gray-700">
+        <div className="w-full p-4 border-t border-gray-700">
           <Link
             href="/"
             className="flex items-center px-4 py-3 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-800 hover:text-white transition-colors mb-2"
@@ -257,9 +269,9 @@ export default function AdminLayout({
       )}
 
       {/* Main content */}
-      <div className="flex-1 lg:ml-0">
+      <div className="flex-1 lg:ml-0 flex flex-col min-h-screen">
         {/* Top bar */}
-        <header className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-6 lg:px-8">
+        <header className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-6 lg:px-8 flex-shrink-0">
           <div className="flex items-center">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -284,8 +296,8 @@ export default function AdminLayout({
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1">
+        {/* Page content - Scrollable */}
+        <main className="flex-1 overflow-y-auto">
           {children}
         </main>
       </div>

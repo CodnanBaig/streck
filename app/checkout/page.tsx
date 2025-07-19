@@ -15,7 +15,8 @@ export default function CheckoutPage() {
   const { toast } = useToast()
   const { cartItems: contextCartItems, updateQuantity, clearCart } = useContext(CartContext)
   const [couponCode, setCouponCode] = useState("")
-  const [appliedCoupon, setAppliedCoupon] = useState("")
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null)
+  const [couponLoading, setCouponLoading] = useState(false)
   const [shippingMethod, setShippingMethod] = useState("standard")
   const [paymentMethod, setPaymentMethod] = useState("card")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -65,7 +66,7 @@ export default function CheckoutPage() {
   }, [cartItems])
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const discount = appliedCoupon === "CHAOS10" ? subtotal * 0.1 : 0
+  const discount = appliedCoupon && appliedCoupon.discountAmount ? appliedCoupon.discountAmount : 0
   const shipping = shippingMethod === "express" ? 200 : 0
   const total = subtotal - discount + shipping
 
@@ -118,17 +119,67 @@ export default function CheckoutPage() {
     }
   }
 
-  const applyCoupon = () => {
-    if (couponCode === "CHAOS10") {
-      setAppliedCoupon(couponCode)
-      gsap.to(".coupon-success", { scale: 1.1, duration: 0.2, yoyo: true, repeat: 1 })
-    } else {
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) {
       toast({
         variant: "destructive",
         title: "Invalid Coupon",
-        description: "Invalid coupon code. Try 'CHAOS10' if you're feeling lucky.",
+        description: "Please enter a coupon code.",
       })
+      return
     }
+
+    setCouponLoading(true)
+
+    try {
+      const response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: couponCode,
+          subtotal: subtotal,
+          items: cartItems
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setAppliedCoupon(result)
+        setCouponCode("")
+        gsap.to(".coupon-success", { scale: 1.1, duration: 0.2, yoyo: true, repeat: 1 })
+        toast({
+          variant: "success",
+          title: "Coupon Applied!",
+          description: `${result.coupon.name || result.coupon.code} - You saved ₹${result.discountAmount.toLocaleString()}`,
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          variant: "destructive",
+          title: "Invalid Coupon",
+          description: error.error || "Invalid coupon code.",
+        })
+      }
+    } catch (error) {
+      console.error('Error applying coupon:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to apply coupon. Please try again.",
+      })
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null)
+    toast({
+      title: "Coupon Removed",
+      description: "Coupon has been removed from your order.",
+    })
   }
 
   const handleCheckout = async () => {
@@ -165,6 +216,9 @@ export default function CheckoutPage() {
         customerAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
         shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
         subtotal: subtotal,
+        discount: discount,
+        couponCode: appliedCoupon && appliedCoupon.coupon ? appliedCoupon.coupon.code : null,
+        couponId: appliedCoupon && appliedCoupon.coupon ? appliedCoupon.coupon.id : null,
         tax: subtotal * 0.18, // 18% GST
         shipping: shipping,
         total: total,
@@ -510,7 +564,7 @@ export default function CheckoutPage() {
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-green-600">
-                      <span>Discount ({appliedCoupon})</span>
+                      <span>Discount ({appliedCoupon.coupon.code})</span>
                       <span>-₹{discount.toLocaleString()}</span>
                     </div>
                   )}
@@ -524,25 +578,44 @@ export default function CheckoutPage() {
                 {/* Coupon Code */}
                 <div className="space-y-2">
                   <Label>Coupon Code (If you're lucky)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      placeholder="Try CHAOS10"
-                      className="border-black"
-                    />
-                    <Button
-                      variant="outline"
-                      className="border-black text-black hover:bg-black hover:text-white"
-                      onClick={applyCoupon}
-                    >
-                      Apply
-                    </Button>
-                  </div>
-                  {appliedCoupon && (
-                    <p className="coupon-success text-green-600 text-sm font-bold">
-                      Coupon applied! You saved ₹{discount.toLocaleString()}
-                    </p>
+                  {!appliedCoupon ? (
+                    <div className="flex gap-2">
+                      <Input
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        placeholder="Enter coupon code"
+                        className="border-black"
+                        disabled={couponLoading}
+                      />
+                      <Button
+                        variant="outline"
+                        className="border-black text-black hover:bg-black hover:text-white"
+                        onClick={applyCoupon}
+                        disabled={couponLoading}
+                      >
+                        {couponLoading ? "..." : "Apply"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-green-800">{appliedCoupon.coupon.code}</p>
+                          <p className="text-sm text-green-600">{appliedCoupon.coupon.name || 'Discount Applied'}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={removeCoupon}
+                          className="text-green-600 hover:text-green-800"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                      <p className="coupon-success text-green-600 text-sm font-bold mt-1">
+                        You saved ₹{discount.toLocaleString()}
+                      </p>
+                    </div>
                   )}
                 </div>
 
