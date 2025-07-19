@@ -19,6 +19,9 @@ Bold, chaotic, unapologetically desi streetwear for Gen Z rebels who don't give 
 - **Animations**: GSAP for smooth animations
 - **State Management**: React Context + Local Storage
 - **Package Manager**: npm
+- **Database**: Prisma ORM with SQLite
+- **Image Storage**: Cloudinary
+- **Admin Panel**: Full CRUD operations for products, orders, customers
 
 ## 📦 Installation
 
@@ -33,7 +36,30 @@ Bold, chaotic, unapologetically desi streetwear for Gen Z rebels who don't give 
    npm install
    ```
 
-3. **Start the development server**
+3. **Set up environment variables**
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env.local
+   
+   # Add your Cloudinary credentials
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
+   ```
+
+4. **Set up the database**
+   ```bash
+   # Generate Prisma client
+   npx prisma generate
+   
+   # Run migrations
+   npx prisma migrate dev
+   
+   # Seed the database
+   npx prisma db seed
+   ```
+
+5. **Start the development server**
    ```bash
    npm run dev
    ```
@@ -74,9 +100,36 @@ npm run format:check
 4. **Comedy Collection** - Dark humor that needs therapy
 5. **Professional Collection** - Corporate wear for rebels
 
-## 🔧 Development
+## ☁️ Cloudinary Setup
 
-### Project Structure
+### Getting Started with Cloudinary
+
+1. **Create a Cloudinary Account**
+   - Go to [cloudinary.com](https://cloudinary.com)
+   - Sign up for a free account
+   - Get your credentials from the dashboard
+
+2. **Environment Variables**
+   Add these to your `.env.local` file:
+   ```env
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
+   ```
+
+3. **Features**
+   - **Automatic Image Optimization**: Images are automatically optimized for web
+   - **Multiple Formats**: Supports WebP, AVIF, and other modern formats
+   - **Responsive Images**: Automatic resizing for different screen sizes
+   - **Drag & Drop Upload**: Easy image upload with preview
+   - **File Validation**: Size and type validation (max 5MB, images only)
+
+### Free Tier Limits
+- **25 GB storage**
+- **25 GB bandwidth/month**
+- **25,000 transformations/month**
+
+## 🔧 Development
 ```
 streck/
 ├── app/                    # Next.js app directory

@@ -17,7 +17,8 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger)
 }
 
-const categories = [
+// Fallback categories with static images (used until categories are fetched from API)
+const fallbackCategories = [
   {
     id: "18plus",
     name: "18+",
@@ -97,11 +98,13 @@ export default function StreckHomepage() {
   const [showWarning, setShowWarning] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState(fallbackCategories)
   const [loading, setLoading] = useState(true)
 
-  // Fetch products from API
+  // Fetch products and categories from API
   useEffect(() => {
     fetchProducts()
+    fetchCategories()
   }, [])
 
   const fetchProducts = async () => {
@@ -119,6 +122,28 @@ export default function StreckHomepage() {
       console.error('Error fetching products:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories?status=active')
+      if (response.ok) {
+        const data = await response.json()
+        // Transform API data to match the expected format
+        const transformedCategories = data.map((cat: any) => ({
+          id: cat.slug,
+          name: cat.name,
+          image: cat.image || fallbackCategories.find(fc => fc.id === cat.slug)?.image || "/placeholder.svg",
+          color: cat.color || "bg-gray-600",
+          warning: cat.slug === "18plus" // Keep warning for 18+ category
+        }))
+        setCategories(transformedCategories)
+      } else {
+        console.error('Failed to fetch categories')
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error)
     }
   }
 
@@ -162,7 +187,7 @@ export default function StreckHomepage() {
     }, 4000)
 
     return () => clearInterval(interval)
-  }, [cartCount, setCartCount])
+  }, [cartCount, cartCount])
 
   const handleCategoryClick = (category: any) => {
     if (category.warning) {

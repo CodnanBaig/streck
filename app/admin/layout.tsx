@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -17,7 +17,8 @@ import {
   Menu,
   X,
   LogOut,
-  Home
+  Home,
+  ChevronDown
 } from "lucide-react"
 
 const sidebarItems = [
@@ -29,7 +30,17 @@ const sidebarItems = [
   {
     title: "Products",
     href: "/admin/products",
-    icon: Package
+    icon: Package,
+    submenu: [
+      {
+        title: "All Products",
+        href: "/admin/products"
+      },
+      {
+        title: "Product Types",
+        href: "/admin/product-types"
+      }
+    ]
   },
   {
     title: "Orders",
@@ -69,12 +80,76 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([])
+  const [adminUser, setAdminUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const pathname = usePathname()
+  const router = useRouter()
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = () => {
+      try {
+        const token = localStorage.getItem('adminToken')
+        const user = localStorage.getItem('adminUser')
+        
+        if (!token || !user) {
+          router.push('/admin/login')
+          return
+        }
+        
+        setAdminUser(JSON.parse(user))
+      } catch (error) {
+        console.error('Auth check error:', error)
+        router.push('/admin/login')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    // Only check auth if not on login page
+    if (pathname !== '/admin/login') {
+      checkAuth()
+    } else {
+      setLoading(false)
+    }
+  }, [router, pathname])
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminToken')
+    localStorage.removeItem('adminUser')
+    router.push('/admin/login')
+  }
+
+  const toggleSubmenu = (title: string) => {
+    setExpandedMenus(prev => 
+      prev.includes(title) 
+        ? prev.filter(item => item !== title)
+        : [...prev, title]
+    )
+  }
+
+  // Show loading state while checking authentication (but not on login page)
+  if (loading && pathname !== '/admin/login') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-gray-300 border-t-black rounded-full animate-spin mx-auto mb-4"></div>
+          <p>Checking authentication...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // If on login page, render children without sidebar
+  if (pathname === '/admin/login') {
+    return <>{children}</>
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
+        {/* Sidebar */}
+        <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
         <div className="flex items-center justify-between h-16 px-4 bg-gray-800">
           <Link href="/admin" className="flex items-center">
             <h1 className="text-xl font-bold text-white">STRECK Admin</h1>
@@ -90,21 +165,65 @@ export default function AdminLayout({
         <nav className="mt-8 px-4">
           <div className="space-y-2">
             {sidebarItems.map((item) => {
-              const isActive = pathname === item.href
+              const isActive = pathname === item.href || (item.submenu && item.submenu.some(sub => sub.href === pathname))
+              const isExpanded = expandedMenus.includes(item.title)
+              
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                  }`}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <item.icon className="w-5 h-5 mr-3" />
-                  {item.title}
-                </Link>
+                <div key={item.href}>
+                  {item.submenu ? (
+                    <>
+                      <button
+                        onClick={() => toggleSubmenu(item.title)}
+                        className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                          isActive
+                            ? 'bg-gray-800 text-white'
+                            : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center">
+                          <item.icon className="w-5 h-5 mr-3" />
+                          {item.title}
+                        </div>
+                        <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      </button>
+                      
+                      {isExpanded && (
+                        <div className="ml-8 mt-2 space-y-1">
+                          {item.submenu.map((subItem) => {
+                            const isSubActive = pathname === subItem.href
+                            return (
+                              <Link
+                                key={subItem.href}
+                                href={subItem.href}
+                                className={`block px-4 py-2 text-sm rounded-lg transition-colors ${
+                                  isSubActive
+                                    ? 'bg-gray-700 text-white'
+                                    : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                                }`}
+                                onClick={() => setSidebarOpen(false)}
+                              >
+                                {subItem.title}
+                              </Link>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Link
+                      href={item.href}
+                      className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                        isActive
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                      }`}
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <item.icon className="w-5 h-5 mr-3" />
+                      {item.title}
+                    </Link>
+                  )}
+                </div>
               )
             })}
           </div>
@@ -119,7 +238,10 @@ export default function AdminLayout({
             <Home className="w-5 h-5 mr-3" />
             Back to Website
           </Link>
-          <button className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-800 hover:text-white transition-colors">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-300 rounded-lg hover:bg-gray-800 hover:text-white transition-colors"
+          >
             <LogOut className="w-5 h-5 mr-3" />
             Logout
           </button>
@@ -155,7 +277,9 @@ export default function AdminLayout({
               Online
             </Badge>
             <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium text-gray-600">A</span>
+              <span className="text-sm font-medium text-gray-600">
+                {adminUser?.name?.charAt(0) || 'A'}
+              </span>
             </div>
           </div>
         </header>

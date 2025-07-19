@@ -23,6 +23,8 @@ import {
   CreditCard,
   Calendar
 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface OrderItem {
   id: number
@@ -59,11 +61,13 @@ interface Order {
 }
 
 export default function AdminOrders() {
+  const { toast } = useToast()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
   // Fetch orders from API
@@ -175,41 +179,68 @@ export default function AdminOrders() {
         if (selectedOrder?.id === orderId) {
           setSelectedOrder(updatedOrder)
         }
-        alert(`Order status updated to ${newStatus}`)
+        toast({
+          variant: "success",
+          title: "Success!",
+          description: `Order status updated to ${newStatus}`,
+        })
       } else {
         const error = await response.json()
-        alert(`Failed to update order: ${error.error}`)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to update order: ${error.error}`,
+        })
       }
     } catch (error) {
       console.error('Error updating order status:', error)
-      alert("Failed to update order status. Please try again.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update order status. Please try again.",
+      })
     }
   }
 
-  const handleCancelOrder = async (orderId: number) => {
-    if (!confirm("Are you sure you want to cancel this order? This action cannot be undone.")) {
-      return
-    }
+  const handleCancelClick = (order: Order) => {
+    setSelectedOrder(order)
+    setIsCancelModalOpen(true)
+  }
+
+  const handleCancelOrder = async () => {
+    if (!selectedOrder) return
 
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
+      const response = await fetch(`/api/orders/${selectedOrder.id}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
         const result = await response.json()
-        setOrders(prev => prev.map(o => o.id === orderId ? result.order : o))
-        if (selectedOrder?.id === orderId) {
+        setOrders(prev => prev.map(o => o.id === selectedOrder.id ? result.order : o))
+        if (selectedOrder?.id === selectedOrder.id) {
           setSelectedOrder(result.order)
         }
-        alert("Order cancelled successfully!")
+        toast({
+          variant: "success",
+          title: "Success!",
+          description: "Order cancelled successfully!",
+        })
       } else {
         const error = await response.json()
-        alert(`Failed to cancel order: ${error.error}`)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to cancel order: ${error.error}`,
+        })
       }
     } catch (error) {
       console.error('Error cancelling order:', error)
-      alert("Failed to cancel order. Please try again.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to cancel order. Please try again.",
+      })
     }
   }
 
@@ -534,7 +565,7 @@ export default function AdminOrders() {
                           Mark Processing
                         </Button>
                         <Button 
-                          onClick={() => handleCancelOrder(selectedOrder.id)}
+                          onClick={() => handleCancelClick(selectedOrder)}
                           variant="outline"
                           className="text-red-600 hover:text-red-700"
                         >
@@ -573,6 +604,19 @@ export default function AdminOrders() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Cancel Order Confirmation Dialog */}
+        <ConfirmDialog
+          open={isCancelModalOpen}
+          onOpenChange={setIsCancelModalOpen}
+          title="Cancel Order"
+          description={`Are you sure you want to cancel order "${selectedOrder?.orderNumber}"? This action cannot be undone.`}
+          onConfirm={handleCancelOrder}
+          confirmText="Cancel Order"
+          cancelText="Keep Order"
+          variant="destructive"
+        />
+
       </div>
     </div>
   )

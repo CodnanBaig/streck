@@ -20,6 +20,9 @@ import {
   Upload,
   Palette
 } from "lucide-react"
+import { ImageUpload } from "@/components/ui/image-upload"
+import { useToast } from "@/hooks/use-toast"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface Category {
   id: number
@@ -37,12 +40,14 @@ interface Category {
 }
 
 export default function AdminCategories() {
+  const { toast } = useToast()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [newCategory, setNewCategory] = useState({
     name: "",
@@ -54,6 +59,7 @@ export default function AdminCategories() {
     featured: false,
     sortOrder: 0
   })
+  const [uploadedImages, setUploadedImages] = useState<{ url: string; publicId: string }[]>([])
 
   const colorOptions = [
     { value: "bg-red-600", label: "Red", preview: "bg-red-600" },
@@ -113,12 +119,17 @@ export default function AdminCategories() {
     try {
       // Validate required fields
       if (!newCategory.name || !newCategory.slug) {
-        alert("Please fill in all required fields (Name and Slug)")
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Please fill in all required fields (Name and Slug)",
+        })
         return
       }
 
       const categoryData = {
         ...newCategory,
+        image: uploadedImages.length > 0 ? uploadedImages[0].url : "",
         sortOrder: parseInt(newCategory.sortOrder.toString()) || 0
       }
 
@@ -144,14 +155,27 @@ export default function AdminCategories() {
           featured: false,
           sortOrder: 0
         })
-        alert("Category added successfully!")
+        setUploadedImages([])
+        toast({
+          variant: "success",
+          title: "Success!",
+          description: "Category added successfully!",
+        })
       } else {
         const error = await response.json()
-        alert(`Failed to add category: ${error.error}`)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to add category: ${error.error}`,
+        })
       }
     } catch (error) {
       console.error('Error adding category:', error)
-      alert("Failed to add category. Please try again.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add category. Please try again.",
+      })
     }
   }
 
@@ -161,6 +185,7 @@ export default function AdminCategories() {
     try {
       const categoryData = {
         ...newCategory,
+        image: uploadedImages.length > 0 ? uploadedImages[0].url : newCategory.image,
         sortOrder: parseInt(newCategory.sortOrder.toString()) || 0
       }
 
@@ -177,37 +202,65 @@ export default function AdminCategories() {
         setCategories(prev => prev.map(c => c.id === selectedCategory.id ? updatedCategory : c))
         setIsEditModalOpen(false)
         setSelectedCategory(null)
-        alert("Category updated successfully!")
+        setUploadedImages([])
+        toast({
+          variant: "success",
+          title: "Success!",
+          description: "Category updated successfully!",
+        })
       } else {
         const error = await response.json()
-        alert(`Failed to update category: ${error.error}`)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to update category: ${error.error}`,
+        })
       }
     } catch (error) {
       console.error('Error updating category:', error)
-      alert("Failed to update category. Please try again.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update category. Please try again.",
+      })
     }
   }
 
-  const handleDeleteCategory = async (categoryId: number) => {
-    if (!confirm("Are you sure you want to delete this category? This action cannot be undone.")) {
-      return
-    }
+  const handleDeleteClick = (category: Category) => {
+    setSelectedCategory(category)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleDeleteCategory = async () => {
+    if (!selectedCategory) return
 
     try {
-      const response = await fetch(`/api/categories/${categoryId}`, {
+      const response = await fetch(`/api/categories/${selectedCategory.id}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
-        setCategories(prev => prev.filter(c => c.id !== categoryId))
-        alert("Category deleted successfully!")
+        setCategories(prev => prev.filter(c => c.id !== selectedCategory.id))
+        toast({
+          variant: "success",
+          title: "Success!",
+          description: "Category deleted successfully!",
+        })
       } else {
         const error = await response.json()
-        alert(`Failed to delete category: ${error.error}`)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to delete category: ${error.error}`,
+        })
       }
     } catch (error) {
       console.error('Error deleting category:', error)
-      alert("Failed to delete category. Please try again.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete category. Please try again.",
+      })
     }
   }
 
@@ -228,6 +281,12 @@ export default function AdminCategories() {
       featured: category.featured,
       sortOrder: category.sortOrder
     })
+    // Set uploaded images if category has an image
+    if (category.image) {
+      setUploadedImages([{ url: category.image, publicId: '' }])
+    } else {
+      setUploadedImages([])
+    }
     setIsEditModalOpen(true)
   }
 
@@ -236,6 +295,10 @@ export default function AdminCategories() {
       ...prev,
       [field]: value
     }))
+  }
+
+  const handleImagesUploaded = (images: { url: string; publicId: string }[]) => {
+    setUploadedImages(images)
   }
 
   const generateSlug = (name: string) => {
@@ -372,32 +435,28 @@ export default function AdminCategories() {
                   </div>
                 </div>
 
-                {/* Image Upload and Sort Order */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="image">Category Image</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="image"
-                        placeholder="https://example.com/category-image.jpg"
-                        value={newCategory.image}
-                        onChange={(e) => handleInputChange("image", e.target.value)}
-                      />
-                      <Button variant="outline" size="sm">
-                        <Upload className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sortOrder">Sort Order</Label>
-                    <Input
-                      id="sortOrder"
-                      type="number"
-                      placeholder="0"
-                      value={newCategory.sortOrder}
-                      onChange={(e) => handleInputChange("sortOrder", parseInt(e.target.value) || 0)}
-                    />
-                  </div>
+                {/* Image Upload */}
+                <div className="space-y-2">
+                  <Label>Category Image</Label>
+                  <ImageUpload 
+                    onImagesUploaded={setUploadedImages}
+                    maxImages={1}
+                  />
+                  <p className="text-xs text-gray-500">
+                    Upload a single image for this category. Recommended size: 800x600px
+                  </p>
+                </div>
+
+                {/* Sort Order */}
+                <div className="space-y-2">
+                  <Label htmlFor="sortOrder">Sort Order</Label>
+                  <Input
+                    id="sortOrder"
+                    type="number"
+                    placeholder="0"
+                    value={newCategory.sortOrder}
+                    onChange={(e) => handleInputChange("sortOrder", parseInt(e.target.value) || 0)}
+                  />
                 </div>
 
                 {/* Featured Toggle */}
@@ -613,7 +672,7 @@ export default function AdminCategories() {
                       size="sm" 
                       variant="outline" 
                       className="text-red-600 hover:text-red-700"
-                      onClick={() => handleDeleteCategory(category.id)}
+                      onClick={() => handleDeleteClick(category)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -803,32 +862,28 @@ export default function AdminCategories() {
                 </div>
               </div>
 
-              {/* Image Upload and Sort Order */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-image">Category Image</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="edit-image"
-                      placeholder="https://example.com/category-image.jpg"
-                      value={newCategory.image}
-                      onChange={(e) => handleInputChange("image", e.target.value)}
-                    />
-                    <Button variant="outline" size="sm">
-                      <Upload className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-sortOrder">Sort Order</Label>
-                  <Input
-                    id="edit-sortOrder"
-                    type="number"
-                    placeholder="0"
-                    value={newCategory.sortOrder}
-                    onChange={(e) => handleInputChange("sortOrder", parseInt(e.target.value) || 0)}
-                  />
-                </div>
+              {/* Image Upload */}
+              <div className="space-y-2">
+                <Label>Category Image</Label>
+                <ImageUpload 
+                  onImagesUploaded={setUploadedImages}
+                  maxImages={1}
+                />
+                <p className="text-xs text-gray-500">
+                  Upload a single image for this category. Recommended size: 800x600px
+                </p>
+              </div>
+
+              {/* Sort Order */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-sortOrder">Sort Order</Label>
+                <Input
+                  id="edit-sortOrder"
+                  type="number"
+                  placeholder="0"
+                  value={newCategory.sortOrder}
+                  onChange={(e) => handleInputChange("sortOrder", parseInt(e.target.value) || 0)}
+                />
               </div>
 
               {/* Featured Toggle */}
@@ -899,6 +954,19 @@ export default function AdminCategories() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          open={isDeleteModalOpen}
+          onOpenChange={setIsDeleteModalOpen}
+          title="Delete Category"
+          description={`Are you sure you want to delete "${selectedCategory?.name}"? This action cannot be undone.`}
+          onConfirm={handleDeleteCategory}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="destructive"
+        />
+
       </div>
     </div>
   )

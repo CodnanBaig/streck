@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,11 +17,54 @@ import {
   Globe,
   CreditCard,
   Truck,
-  Save
+  Save,
+  Loader2,
+  CheckCircle
 } from "lucide-react"
 
+interface Settings {
+  // Store Settings
+  storeName: string
+  storeDescription: string
+  storeEmail: string
+  storePhone: string
+  storeAddress: string
+  
+  // Notifications
+  emailNotifications: boolean
+  orderNotifications: boolean
+  lowStockAlerts: boolean
+  customerNotifications: boolean
+  
+  // Security
+  twoFactorAuth: boolean
+  loginAlerts: boolean
+  sessionTimeout: string
+  
+  // Display
+  darkMode: boolean
+  compactView: boolean
+  showProductImages: boolean
+  itemsPerPage: string
+  
+  // Payment Settings
+  paymentMethods: string[]
+  defaultCurrency: string
+  taxRate: string
+  
+  // Shipping Settings
+  shippingMethods: string[]
+  defaultShippingCost: string
+  freeShippingThreshold: string
+  
+  // Email Templates
+  orderConfirmationSubject: string
+  orderShippedSubject: string
+  orderDeliveredSubject: string
+}
+
 export default function AdminSettings() {
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState<Settings>({
     // Store Settings
     storeName: "STRECK",
     storeDescription: "Bold, chaotic, unapologetically desi streetwear for Gen Z rebels",
@@ -44,12 +87,79 @@ export default function AdminSettings() {
     darkMode: false,
     compactView: false,
     showProductImages: true,
-    itemsPerPage: "20"
+    itemsPerPage: "20",
+    
+    // Payment Settings
+    paymentMethods: ["COD", "Online Payment", "UPI"],
+    defaultCurrency: "INR",
+    taxRate: "18",
+    
+    // Shipping Settings
+    shippingMethods: ["Standard", "Express"],
+    defaultShippingCost: "0",
+    freeShippingThreshold: "1000",
+    
+    // Email Templates
+    orderConfirmationSubject: "Order Confirmed - {orderNumber}",
+    orderShippedSubject: "Your Order is on the way!",
+    orderDeliveredSubject: "Order Delivered Successfully"
   })
+  
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
-  const handleSave = () => {
-    // Handle save logic here
-    console.log("Settings saved:", settings)
+  // Fetch settings from API
+  useEffect(() => {
+    fetchSettings()
+  }, [])
+
+  const fetchSettings = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/settings')
+      if (response.ok) {
+        const data = await response.json()
+        setSettings(data)
+      } else {
+        console.error('Failed to fetch settings')
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      setSaveStatus('idle')
+      
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings)
+      })
+
+      if (response.ok) {
+        setSaveStatus('success')
+        setTimeout(() => setSaveStatus('idle'), 3000)
+      } else {
+        const error = await response.json()
+        console.error('Failed to save settings:', error)
+        setSaveStatus('error')
+        setTimeout(() => setSaveStatus('idle'), 3000)
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus('idle'), 3000)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const settingSections = [
@@ -160,9 +270,27 @@ export default function AdminSettings() {
             <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
             <p className="text-gray-600 mt-2">Configure your store settings and preferences</p>
           </div>
-          <Button onClick={handleSave} className="bg-black hover:bg-gray-800">
-            <Save className="w-4 h-4 mr-2" />
-            Save Changes
+          <Button 
+            onClick={handleSave} 
+            disabled={saving || loading}
+            className="bg-black hover:bg-gray-800"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : saveStatus === 'success' ? (
+              <>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Saved!
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Save Changes
+              </>
+            )}
           </Button>
         </div>
 
@@ -193,28 +321,40 @@ export default function AdminSettings() {
           </Card>
         </div>
 
-        {/* Settings Sections */}
-        <div className="space-y-8">
-          {settingSections.map((section) => (
-            <Card key={section.title}>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <section.icon className="w-5 h-5 mr-2" />
-                  {section.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {section.fields.map((field) => (
-                    <div key={field.key}>
-                      {renderField(field)}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/* Loading State */}
+        {loading ? (
+          <Card>
+            <CardContent className="p-12">
+              <div className="flex justify-center items-center">
+                <Loader2 className="w-8 h-8 animate-spin mr-3" />
+                <p>Loading settings...</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          /* Settings Sections */
+          <div className="space-y-8">
+            {settingSections.map((section) => (
+              <Card key={section.title}>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <section.icon className="w-5 h-5 mr-2" />
+                    {section.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {section.fields.map((field) => (
+                      <div key={field.key}>
+                        {renderField(field)}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* Danger Zone */}
         <Card className="border-red-200 bg-red-50 mt-8">
@@ -248,9 +388,27 @@ export default function AdminSettings() {
 
         {/* Save Button (Bottom) */}
         <div className="flex justify-end mt-8">
-          <Button onClick={handleSave} className="bg-black hover:bg-gray-800">
-            <Save className="w-4 h-4 mr-2" />
-            Save All Changes
+          <Button 
+            onClick={handleSave} 
+            disabled={saving || loading}
+            className="bg-black hover:bg-gray-800"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : saveStatus === 'success' ? (
+              <>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Saved!
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Save All Changes
+              </>
+            )}
           </Button>
         </div>
       </div>

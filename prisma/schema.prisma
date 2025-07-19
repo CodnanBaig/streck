@@ -32,6 +32,22 @@ model Category {
   @@map("categories")
 }
 
+model ProductType {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  status      String   @default("active") // active, inactive
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationship with products
+  products    Product[]
+
+  @@map("product_types")
+}
+
 model Product {
   id          Int      @id @default(autoincrement())
   name        String
@@ -41,6 +57,8 @@ model Product {
   images      String   // JSON string array
   category    String   // Keep for backward compatibility
   categoryId  Int?     // New foreign key relationship
+  productType String   // Keep for backward compatibility
+  productTypeId Int?   // New foreign key relationship
   sizes       String   // JSON string array
   colors      String   // JSON string array
   rating      Float    @default(0)
@@ -51,8 +69,9 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relationship with category
+  // Relationships
   categoryRef Category? @relation(fields: [categoryId], references: [id])
+  productTypeRef ProductType? @relation(fields: [productTypeId], references: [id])
 
   @@map("products")
 }
@@ -61,11 +80,15 @@ model Order {
   id          Int      @id @default(autoincrement())
   orderNumber String   @unique // #ORD-001, #ORD-002, etc.
   
-  // Customer Information
+  // Customer Information (keep for backward compatibility)
   customerName String
   customerEmail String
   customerPhone String
   customerAddress String
+  
+  // Customer relationship
+  customerId  Int?
+  customer    Customer? @relation(fields: [customerId], references: [id])
   
   // Order Details
   items       OrderItem[]
@@ -107,4 +130,23 @@ model OrderItem {
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   
   @@map("order_items")
+}
+
+model Customer {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  name        String
+  phone       String
+  address     String?
+  status      String   @default("active") // active, vip, new, inactive
+  notes       String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  orders      Order[]
+  
+  @@map("customers")
 }

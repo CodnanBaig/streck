@@ -18,6 +18,7 @@ interface Product {
   originalPrice: number | null
   images: string[]
   category: string
+  productType: string
   sizes: string[]
   colors: string[]
   rating: number
@@ -29,54 +30,60 @@ interface Product {
   updatedAt: string
 }
 
-interface Category {
+interface ProductType {
   id: number
   name: string
   slug: string
   description: string | null
-  image: string | null
-  color: string
   status: string
-  featured: boolean
   sortOrder: number
-  productCount: number
-  products?: Product[]
   createdAt: string
   updatedAt: string
 }
 
-export default function CategoryPage({ params }: { params: { slug: string } }) {
+export default function ProductTypePage({ params }: { params: { slug: string } }) {
   const { cartCount } = useContext(CartContext)
-  const [category, setCategory] = useState<Category | null>(null)
+  const [productType, setProductType] = useState<ProductType | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState("name")
 
   useEffect(() => {
-    fetchCategoryData()
+    fetchProductTypeData()
   }, [params.slug])
 
-  const fetchCategoryData = async () => {
+  const fetchProductTypeData = async () => {
     try {
       setLoading(true)
-      // Fetch category with products
-      const response = await fetch(`/api/categories/slug/${params.slug}?includeProducts=true`)
       
-      if (response.ok) {
-        const data = await response.json()
-        setCategory(data)
-        setProducts(data.products || [])
-      } else if (response.status === 404) {
-        setCategory(null)
+      // First, fetch the product type details
+      const typeResponse = await fetch(`/api/product-types/slug/${params.slug}`)
+      
+      if (typeResponse.ok) {
+        const typeData = await typeResponse.json()
+        setProductType(typeData)
+        
+        // Then fetch products of this type
+        const productsResponse = await fetch(`/api/products?productType=${params.slug}&status=active`)
+        
+        if (productsResponse.ok) {
+          const productsData = await productsResponse.json()
+          setProducts(productsData)
+        } else {
+          console.error('Failed to fetch products')
+          setProducts([])
+        }
+      } else if (typeResponse.status === 404) {
+        setProductType(null)
         setProducts([])
       } else {
-        console.error('Failed to fetch category data')
-        setCategory(null)
+        console.error('Failed to fetch product type data')
+        setProductType(null)
         setProducts([])
       }
     } catch (error) {
-      console.error('Error fetching category data:', error)
-      setCategory(null)
+      console.error('Error fetching product type data:', error)
+      setProductType(null)
       setProducts([])
     } finally {
       setLoading(false)
@@ -85,9 +92,9 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
 
   useEffect(() => {
     // GSAP Animations
-    gsap.fromTo(".category-hero", { y: -30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8 })
+    gsap.fromTo(".product-type-hero", { y: -30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8 })
     gsap.fromTo(".product-grid", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, delay: 0.3 })
-  }, [category])
+  }, [productType])
 
   // Sort products
   const sortedProducts = [...products].sort((a, b) => {
@@ -111,18 +118,18 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <ShoppingCart className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p>Loading category...</p>
+          <p>Loading products...</p>
         </div>
       </div>
     )
   }
 
-  if (!category) {
+  if (!productType) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-3xl font-black mb-4">Category Not Found</h1>
-          <p className="text-gray-600 mb-6">This category doesn't exist or has been moved.</p>
+          <h1 className="text-3xl font-black mb-4">Product Type Not Found</h1>
+          <p className="text-gray-600 mb-6">This product type doesn't exist or has been moved.</p>
           <Button onClick={() => (window.location.href = "/")} className="bg-black text-white">
             Go Home
           </Button>
@@ -135,29 +142,19 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
     <div className="min-h-screen bg-white text-black">
       <Navbar showBackButton={true} />
 
-      {/* Category Hero */}
-      <section className="category-hero relative h-[40vh] overflow-hidden">
-        <img 
-          src={category.image || "/placeholder.svg"} 
-          alt={category.name} 
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.currentTarget.src = "/placeholder.svg"
-          }}
-        />
+      {/* Product Type Hero */}
+      <section className="product-type-hero relative h-[40vh] overflow-hidden bg-gradient-to-r from-gray-900 to-gray-700">
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="text-center text-white">
-            <h1 className="text-6xl font-black mb-4">{category.name}</h1>
-            <p className="text-xl max-w-2xl mx-auto">{category.description}</p>
+            <h1 className="text-6xl font-black mb-4">{productType.name}</h1>
+            <p className="text-xl max-w-2xl mx-auto">{productType.description}</p>
             <div className="mt-4 flex justify-center gap-4">
-              <Badge className={`${category.color} text-white text-lg px-6 py-2`}>
-                {category.productCount} Products
+              <Badge className="bg-blue-600 text-white text-lg px-6 py-2">
+                {products.length} Products
               </Badge>
-              {category.featured && (
-                <Badge className="bg-blue-600 text-white text-lg px-6 py-2">
-                  Featured Category
-                </Badge>
-              )}
+              <Badge className="bg-gray-600 text-white text-lg px-6 py-2">
+                {productType.name}
+              </Badge>
             </div>
           </div>
         </div>
@@ -170,7 +167,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
             <h2 className="text-2xl font-black">
               {sortedProducts.length} Products Found
             </h2>
-            <p className="text-gray-600">Prepare for maximum chaos</p>
+            <p className="text-gray-600">All {productType.name.toLowerCase()} products</p>
           </div>
           <div className="flex items-center gap-4">
             <label className="font-bold">Sort by:</label>
@@ -214,7 +211,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
               <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-2xl font-black mb-4">No Products Found</h3>
               <p className="text-gray-600 mb-6">
-                This category is currently empty. Check back soon for new chaos!
+                No {productType.name.toLowerCase()} products available yet. Check back soon!
               </p>
               <Button onClick={() => (window.location.href = "/")} className="bg-black text-white">
                 Browse All Products
@@ -224,41 +221,41 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
         </div>
       </section>
 
-      {/* Category Info */}
+      {/* Product Type Info */}
       {sortedProducts.length > 0 && (
         <section className="py-16 px-6 bg-gray-50">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl font-black mb-6">About {category.name}</h2>
+            <h2 className="text-3xl font-black mb-6">About {productType.name}</h2>
             <p className="text-lg text-gray-700 leading-relaxed">
-              {category.description}. Each piece is designed to make a statement and spark conversations. 
-              Whether you're looking to express your personality or just want to stand out from the crowd, 
-              our {category.name.toLowerCase()} collection has something for every rebel.
+              {productType.description || `Our ${productType.name} collection features high-quality, 
+              comfortable pieces designed for everyday wear. Each item is crafted with attention to detail 
+              and made from premium materials to ensure both style and durability.`}
             </p>
             
-            {/* Category Stats */}
+            {/* Product Type Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
               <div className="text-center">
-                <div className={`w-16 h-16 ${category.color} rounded-full flex items-center justify-center mx-auto mb-2`}>
-                  <span className="text-white font-bold text-xl">{category.productCount}</span>
+                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <span className="text-white font-bold text-xl">{products.length}</span>
                 </div>
                 <h3 className="font-bold">Products</h3>
                 <p className="text-gray-600">Available items</p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
                   <span className="text-white font-bold text-xl">{products.filter(p => p.featured).length}</span>
                 </div>
                 <h3 className="font-bold">Featured</h3>
-                <p className="text-gray-600">Staff picks</p>
+                <p className="text-gray-600">Top picks</p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-2">
                   <span className="text-white font-bold text-xl">
-                    {products.length > 0 ? (products.reduce((sum, p) => sum + p.rating, 0) / products.length).toFixed(1) : '0'}
+                    {Math.round(products.reduce((sum, p) => sum + p.rating, 0) / products.length * 10) / 10}
                   </span>
                 </div>
                 <h3 className="font-bold">Avg Rating</h3>
-                <p className="text-gray-600">Out of 5 stars</p>
+                <p className="text-gray-600">Customer satisfaction</p>
               </div>
             </div>
           </div>
@@ -266,4 +263,4 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
       )}
     </div>
   )
-}
+} 

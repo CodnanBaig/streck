@@ -21,6 +21,9 @@ import {
   TrendingUp,
   AlertTriangle
 } from "lucide-react"
+import { ImageUpload } from "@/components/ui/image-upload"
+import { useToast } from "@/hooks/use-toast"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 interface Product {
   id: number
@@ -30,6 +33,7 @@ interface Product {
   originalPrice: number | null
   images: string[]
   category: string
+  productType: string
   sizes: string[]
   colors: string[]
   rating: number
@@ -41,13 +45,23 @@ interface Product {
   updatedAt: string
 }
 
+interface ProductType {
+  id: number
+  name: string
+  slug: string
+  status: string
+}
+
 export default function AdminProducts() {
+  const { toast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
+  const [productTypes, setProductTypes] = useState<ProductType[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -55,6 +69,7 @@ export default function AdminProducts() {
     price: "",
     originalPrice: "",
     category: "",
+    productType: "",
     images: [""],
     sizes: ["S", "M", "L", "XL"],
     colors: ["Black", "White"],
@@ -63,9 +78,12 @@ export default function AdminProducts() {
     featured: false
   })
 
-  // Fetch products from API
+
+
+  // Fetch products and product types from API
   useEffect(() => {
     fetchProducts()
+    fetchProductTypes()
   }, [])
 
   const fetchProducts = async () => {
@@ -82,6 +100,20 @@ export default function AdminProducts() {
       console.error('Error fetching products:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchProductTypes = async () => {
+    try {
+      const response = await fetch('/api/product-types?status=active')
+      if (response.ok) {
+        const data = await response.json()
+        setProductTypes(data)
+      } else {
+        console.error('Failed to fetch product types')
+      }
+    } catch (error) {
+      console.error('Error fetching product types:', error)
     }
   }
 
@@ -109,8 +141,12 @@ export default function AdminProducts() {
   const handleAddProduct = async () => {
     try {
       // Validate required fields
-      if (!newProduct.name || !newProduct.price || !newProduct.category) {
-        alert("Please fill in all required fields (Name, Price, Category)")
+      if (!newProduct.name || !newProduct.price || !newProduct.category || !newProduct.productType) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Please fill in all required fields (Name, Price, Category, Product Type)",
+        })
         return
       }
 
@@ -139,6 +175,7 @@ export default function AdminProducts() {
           price: "",
           originalPrice: "",
           category: "",
+          productType: "",
           images: [""],
           sizes: ["S", "M", "L", "XL"],
           colors: ["Black", "White"],
@@ -146,14 +183,26 @@ export default function AdminProducts() {
           status: "active",
           featured: false
         })
-        alert("Product added successfully!")
+        toast({
+          variant: "success",
+          title: "Success!",
+          description: "Product added successfully!",
+        })
       } else {
         const error = await response.json()
-        alert(`Failed to add product: ${error.error}`)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to add product: ${error.error}`,
+        })
       }
     } catch (error) {
       console.error('Error adding product:', error)
-      alert("Failed to add product. Please try again.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add product. Please try again.",
+      })
     }
   }
 
@@ -181,37 +230,64 @@ export default function AdminProducts() {
         setProducts(prev => prev.map(p => p.id === selectedProduct.id ? updatedProduct : p))
         setIsEditModalOpen(false)
         setSelectedProduct(null)
-        alert("Product updated successfully!")
+        toast({
+          variant: "success",
+          title: "Success!",
+          description: "Product updated successfully!",
+        })
       } else {
         const error = await response.json()
-        alert(`Failed to update product: ${error.error}`)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to update product: ${error.error}`,
+        })
       }
     } catch (error) {
       console.error('Error updating product:', error)
-      alert("Failed to update product. Please try again.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update product. Please try again.",
+      })
     }
   }
 
-  const handleDeleteProduct = async (productId: number) => {
-    if (!confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
-      return
-    }
+  const handleDeleteClick = (product: Product) => {
+    setSelectedProduct(product)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleDeleteProduct = async () => {
+    if (!selectedProduct) return
 
     try {
-      const response = await fetch(`/api/products/${productId}`, {
+      const response = await fetch(`/api/products/${selectedProduct.id}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
-        setProducts(prev => prev.filter(p => p.id !== productId))
-        alert("Product deleted successfully!")
+        setProducts(prev => prev.filter(p => p.id !== selectedProduct.id))
+        toast({
+          variant: "success",
+          title: "Success!",
+          description: "Product deleted successfully!",
+        })
       } else {
         const error = await response.json()
-        alert(`Failed to delete product: ${error.error}`)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to delete product: ${error.error}`,
+        })
       }
     } catch (error) {
       console.error('Error deleting product:', error)
-      alert("Failed to delete product. Please try again.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete product. Please try again.",
+      })
     }
   }
 
@@ -228,6 +304,7 @@ export default function AdminProducts() {
       price: product.price.toString(),
       originalPrice: product.originalPrice?.toString() || "",
       category: product.category,
+      productType: product.productType || "",
       images: product.images.length > 0 ? product.images : [""],
       sizes: product.sizes,
       colors: product.colors,
@@ -245,30 +322,12 @@ export default function AdminProducts() {
     }))
   }
 
-  const handleImageChange = (index: number, value: string) => {
-    const newImages = [...newProduct.images]
-    newImages[index] = value
+  const handleImagesUploaded = (uploadedImages: { url: string; publicId: string }[]) => {
+    const imageUrls = uploadedImages.map(img => img.url)
     setNewProduct(prev => ({
       ...prev,
-      images: newImages
+      images: imageUrls
     }))
-  }
-
-  const addImageField = () => {
-    setNewProduct(prev => ({
-      ...prev,
-      images: [...prev.images, ""]
-    }))
-  }
-
-  const removeImageField = (index: number) => {
-    if (newProduct.images.length > 1) {
-      const newImages = newProduct.images.filter((_, i) => i !== index)
-      setNewProduct(prev => ({
-        ...prev,
-        images: newImages
-      }))
-    }
   }
 
   const handleSizeToggle = (size: string) => {
@@ -307,6 +366,8 @@ export default function AdminProducts() {
       }))
     }
   }
+
+
 
   // Calculate stats
   const stats = {
@@ -359,7 +420,7 @@ export default function AdminProducts() {
               
               <div className="space-y-6">
                 {/* Basic Information */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Product Name *</Label>
                     <Input
@@ -381,6 +442,22 @@ export default function AdminProducts() {
                         <SelectItem value="Pets">Pets</SelectItem>
                         <SelectItem value="Funny">Funny</SelectItem>
                         <SelectItem value="Profession">Profession</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="productType">Product Type *</Label>
+                    <Select value={newProduct.productType} onValueChange={(value) => handleInputChange("productType", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {productTypes.map((type) => (
+                          <SelectItem key={type.id} value={type.slug}>
+                            {type.name}
+                          </SelectItem>
+                        ))}
+
                       </SelectContent>
                     </Select>
                   </div>
@@ -425,33 +502,15 @@ export default function AdminProducts() {
                 {/* Images */}
                 <div className="space-y-2">
                   <Label>Product Images</Label>
-                  {newProduct.images.map((image, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Input
-                        placeholder="https://example.com/image.jpg"
-                        value={image}
-                        onChange={(e) => handleImageChange(index, e.target.value)}
-                      />
-                      {newProduct.images.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeImageField(index)}
-                        >
-                          Remove
-                        </Button>
-                      )}
+                  <ImageUpload 
+                    onImagesUploaded={handleImagesUploaded}
+                    maxImages={5}
+                  />
+                  {newProduct.images.length > 0 && (
+                    <div className="text-sm text-gray-500">
+                      {newProduct.images.length} image(s) selected
                     </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addImageField}
-                  >
-                    Add Image
-                  </Button>
+                  )}
                 </div>
 
                 {/* Sizes */}
@@ -589,7 +648,7 @@ export default function AdminProducts() {
                   </Button>
                   <Button 
                     onClick={handleAddProduct}
-                    disabled={!newProduct.name || !newProduct.price || !newProduct.category}
+                    disabled={!newProduct.name || !newProduct.price || !newProduct.category || !newProduct.productType}
                     className="bg-black hover:bg-gray-800"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -741,7 +800,7 @@ export default function AdminProducts() {
                     size="sm" 
                     variant="outline" 
                     className="text-red-600 hover:text-red-700"
-                    onClick={() => handleDeleteProduct(product.id)}
+                    onClick={() => handleDeleteClick(product)}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -862,7 +921,7 @@ export default function AdminProducts() {
             
             <div className="space-y-6">
               {/* Basic Information */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Product Name *</Label>
                   <Input
@@ -884,6 +943,22 @@ export default function AdminProducts() {
                       <SelectItem value="Pets">Pets</SelectItem>
                       <SelectItem value="Funny">Funny</SelectItem>
                       <SelectItem value="Profession">Profession</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-productType">Product Type *</Label>
+                  <Select value={newProduct.productType} onValueChange={(value) => handleInputChange("productType", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {productTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.slug}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+
                     </SelectContent>
                   </Select>
                 </div>
@@ -928,33 +1003,15 @@ export default function AdminProducts() {
               {/* Images */}
               <div className="space-y-2">
                 <Label>Product Images</Label>
-                {newProduct.images.map((image, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      placeholder="https://example.com/image.jpg"
-                      value={image}
-                      onChange={(e) => handleImageChange(index, e.target.value)}
-                    />
-                    {newProduct.images.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeImageField(index)}
-                      >
-                        Remove
-                      </Button>
-                    )}
+                <ImageUpload 
+                  onImagesUploaded={handleImagesUploaded}
+                  maxImages={5}
+                />
+                {newProduct.images.length > 0 && (
+                  <div className="text-sm text-gray-500">
+                    {newProduct.images.length} image(s) selected
                   </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addImageField}
-                >
-                  Add Image
-                </Button>
+                )}
               </div>
 
               {/* Sizes */}
@@ -1052,7 +1109,7 @@ export default function AdminProducts() {
                 </Button>
                 <Button 
                   onClick={handleEditProduct}
-                  disabled={!newProduct.name || !newProduct.price || !newProduct.category}
+                  disabled={!newProduct.name || !newProduct.price || !newProduct.category || !newProduct.productType}
                   className="bg-black hover:bg-gray-800"
                 >
                   <Edit className="w-4 h-4 mr-2" />
@@ -1062,6 +1119,19 @@ export default function AdminProducts() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          open={isDeleteModalOpen}
+          onOpenChange={setIsDeleteModalOpen}
+          title="Delete Product"
+          description={`Are you sure you want to delete "${selectedProduct?.name}"? This action cannot be undone.`}
+          onConfirm={handleDeleteProduct}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="destructive"
+        />
+
       </div>
     </div>
   )

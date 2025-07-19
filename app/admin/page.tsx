@@ -64,6 +64,10 @@ export default function AdminDashboard() {
       const productsResponse = await fetch('/api/products')
       const products = productsResponse.ok ? await productsResponse.json() : []
       
+      // Fetch customers
+      const customersResponse = await fetch('/api/customers')
+      const customers = customersResponse.ok ? await customersResponse.json() : []
+      
       // Calculate stats
       const totalOrders = orders.length
       const totalRevenue = orders
@@ -72,6 +76,7 @@ export default function AdminDashboard() {
       const pendingOrders = orders.filter((order: any) => order.status === 'pending').length
       const totalProducts = products.length
       const lowStockProducts = products.filter((product: any) => !product.inStock).length
+      const totalCustomers = customers.length
       
       // Get recent orders (last 5)
       const recentOrders = orders
@@ -89,7 +94,7 @@ export default function AdminDashboard() {
         totalOrders,
         totalRevenue,
         totalProducts,
-        totalCustomers: 892, // Mock data for now
+        totalCustomers,
         pendingOrders,
         lowStockProducts,
         recentOrders

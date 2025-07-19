@@ -2,6 +2,30 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+const sampleProductTypes = [
+  {
+    name: "T-Shirts",
+    slug: "tshirts",
+    description: "Classic cotton t-shirts with attitude",
+    status: "active",
+    sortOrder: 1
+  },
+  {
+    name: "Hoodies",
+    slug: "hoodies", 
+    description: "Comfortable hoodies for maximum chaos",
+    status: "active",
+    sortOrder: 2
+  },
+  {
+    name: "Sweatshirts",
+    slug: "sweatshirts",
+    description: "Cozy sweatshirts for lazy days",
+    status: "active",
+    sortOrder: 3
+  }
+]
+
 const sampleProducts = [
   {
     name: "Toxic But Make It Fashion",
@@ -10,6 +34,7 @@ const sampleProducts = [
     originalPrice: 1599,
     images: JSON.stringify(["/placeholder.svg", "/placeholder.svg", "/placeholder.svg"]),
     category: "18+",
+    productType: "T-Shirts",
     sizes: JSON.stringify(["XS", "S", "M", "L", "XL", "XXL"]),
     colors: JSON.stringify(["Black", "White", "Blood Red"]),
     rating: 4.8,
@@ -25,6 +50,7 @@ const sampleProducts = [
     originalPrice: 1799,
     images: JSON.stringify(["/placeholder.svg", "/placeholder.svg"]),
     category: "Fitness",
+    productType: "T-Shirts",
     sizes: JSON.stringify(["S", "M", "L", "XL", "XXL"]),
     colors: JSON.stringify(["Black", "White", "Gray"]),
     rating: 4.5,
@@ -40,6 +66,7 @@ const sampleProducts = [
     originalPrice: 1399,
     images: JSON.stringify(["/placeholder.svg"]),
     category: "Pets",
+    productType: "T-Shirts",
     sizes: JSON.stringify(["XS", "S", "M", "L", "XL"]),
     colors: JSON.stringify(["Black", "White", "Brown"]),
     rating: 4.9,
@@ -55,6 +82,7 @@ const sampleProducts = [
     originalPrice: 2199,
     images: JSON.stringify(["/placeholder.svg", "/placeholder.svg"]),
     category: "Funny",
+    productType: "Hoodies",
     sizes: JSON.stringify(["S", "M", "L", "XL", "XXL"]),
     colors: JSON.stringify(["Black", "Gray", "Navy"]),
     rating: 4.7,
@@ -70,6 +98,7 @@ const sampleProducts = [
     originalPrice: 1299,
     images: JSON.stringify(["/placeholder.svg"]),
     category: "Profession",
+    productType: "T-Shirts",
     sizes: JSON.stringify(["XS", "S", "M", "L", "XL", "XXL"]),
     colors: JSON.stringify(["Black", "White", "Gray"]),
     rating: 4.6,
@@ -85,6 +114,7 @@ const sampleProducts = [
     originalPrice: null,
     images: JSON.stringify(["/placeholder.svg"]),
     category: "Funny",
+    productType: "T-Shirts",
     sizes: JSON.stringify(["S", "M", "L", "XL"]),
     colors: JSON.stringify(["Black", "White"]),
     rating: 4.4,
@@ -92,6 +122,49 @@ const sampleProducts = [
     inStock: true,
     status: "active",
     featured: false
+  }
+]
+
+const sampleCustomers = [
+  {
+    name: "Rahul Sharma",
+    email: "rahul.sharma@email.com",
+    phone: "+91 98765 43210",
+    address: "123 Main Street, Andheri West, Mumbai, Maharashtra 400058",
+    status: "active",
+    notes: "Regular customer, prefers COD payments"
+  },
+  {
+    name: "Priya Singh",
+    email: "priya.singh@email.com",
+    phone: "+91 87654 32109",
+    address: "456 Park Avenue, Connaught Place, Delhi, Delhi 110001",
+    status: "vip",
+    notes: "VIP customer, high value orders"
+  },
+  {
+    name: "Arjun Patel",
+    email: "arjun.patel@email.com",
+    phone: "+91 76543 21098",
+    address: "789 Tech Park, Koramangala, Bangalore, Karnataka 560034",
+    status: "active",
+    notes: "Tech professional, orders frequently"
+  },
+  {
+    name: "Sneha Gupta",
+    email: "sneha.gupta@email.com",
+    phone: "+91 65432 10987",
+    address: "321 Lake View, Koregaon Park, Pune, Maharashtra 411001",
+    status: "new",
+    notes: "First-time customer"
+  },
+  {
+    name: "Vikram Kumar",
+    email: "vikram.kumar@email.com",
+    phone: "+91 54321 09876",
+    address: "654 Beach Road, Marina Beach, Chennai, Tamil Nadu 600001",
+    status: "inactive",
+    notes: "Cancelled last order, may need follow-up"
   }
 ]
 
@@ -247,28 +320,66 @@ const sampleOrders = [
 async function main() {
   console.log('Start seeding...')
   
-  // Create products
-  for (const product of sampleProducts) {
-    await prisma.product.create({
-      data: product
-    })
-  }
-  
-  // Create orders with items
-  for (const orderData of sampleOrders) {
-    const { items, ...orderInfo } = orderData
+  try {
+    // Clear existing data
+    await prisma.orderItem.deleteMany()
+    await prisma.order.deleteMany()
+    await prisma.customer.deleteMany()
+    await prisma.product.deleteMany()
+    await prisma.productType.deleteMany()
     
-    await prisma.order.create({
-      data: {
-        ...orderInfo,
-        items: {
-          create: items
+    // Create customers first
+    const createdCustomers = []
+    for (const customer of sampleCustomers) {
+      const createdCustomer = await prisma.customer.create({
+        data: customer
+      })
+      createdCustomers.push(createdCustomer)
+      console.log(`Created customer: ${customer.name}`)
+    }
+    
+    // Create product types
+    const createdProductTypes = []
+    for (const productType of sampleProductTypes) {
+      const createdProductType = await prisma.productType.create({
+        data: productType
+      })
+      createdProductTypes.push(createdProductType)
+      console.log(`Created product type: ${productType.name}`)
+    }
+    
+    // Create products
+    for (const product of sampleProducts) {
+      await prisma.product.create({
+        data: product
+      })
+      console.log(`Created product: ${product.name}`)
+    }
+    
+    // Create orders with items and link to customers
+    for (const orderData of sampleOrders) {
+      const { items, ...orderInfo } = orderData
+      
+      // Find the corresponding customer
+      const customer = createdCustomers.find(c => c.email === orderData.customerEmail)
+      
+      await prisma.order.create({
+        data: {
+          ...orderInfo,
+          customerId: customer?.id, // Link to customer
+          items: {
+            create: items
+          }
         }
-      }
-    })
+      })
+      console.log(`Created order: ${orderData.orderNumber}`)
+    }
+    
+    console.log('Seeding finished successfully!')
+  } catch (error) {
+    console.error('Error during seeding:', error)
+    throw error
   }
-  
-  console.log('Seeding finished.')
 }
 
 main()

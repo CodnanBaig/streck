@@ -9,8 +9,10 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Trash2, Plus, Minus, CreditCard, Truck, Shield } from "lucide-react"
 import { gsap } from "gsap"
 import { CartContext } from "@/components/providers"
+import { useToast } from "@/hooks/use-toast"
 
 export default function CheckoutPage() {
+  const { toast } = useToast()
   const { cartItems: contextCartItems, updateQuantity, clearCart } = useContext(CartContext)
   const [couponCode, setCouponCode] = useState("")
   const [appliedCoupon, setAppliedCoupon] = useState("")
@@ -121,7 +123,11 @@ export default function CheckoutPage() {
       setAppliedCoupon(couponCode)
       gsap.to(".coupon-success", { scale: 1.1, duration: 0.2, yoyo: true, repeat: 1 })
     } else {
-      alert("Invalid coupon code. Try 'CHAOS10' if you're feeling lucky.")
+      toast({
+        variant: "destructive",
+        title: "Invalid Coupon",
+        description: "Invalid coupon code. Try 'CHAOS10' if you're feeling lucky.",
+      })
     }
   }
 
@@ -131,12 +137,20 @@ export default function CheckoutPage() {
     const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData])
     
     if (missingFields.length > 0) {
-      alert(`Please fill in all required fields: ${missingFields.join(', ')}`)
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: `Please fill in all required fields: ${missingFields.join(', ')}`,
+      })
       return
     }
 
     if (cartItems.length === 0) {
-      alert("Your cart is empty!")
+      toast({
+        variant: "destructive",
+        title: "Empty Cart",
+        description: "Your cart is empty!",
+      })
       return
     }
 
@@ -183,17 +197,29 @@ export default function CheckoutPage() {
         handleClearCart()
         
         // Show success message
-        alert(`Order placed successfully! Order number: ${order.orderNumber}`)
+        toast({
+          variant: "success",
+          title: "Order Placed!",
+          description: `Order placed successfully! Order number: ${order.orderNumber}`,
+        })
         
         // Redirect to home page
         window.location.href = "/"
       } else {
         const error = await response.json()
-        alert(`Failed to place order: ${error.error}`)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to place order: ${error.error}`,
+        })
       }
     } catch (error) {
       console.error('Error placing order:', error)
-      alert("Failed to place order. Please try again.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to place order. Please try again.",
+      })
     } finally {
       setIsSubmitting(false)
     }

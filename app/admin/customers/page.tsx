@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,84 +12,74 @@ import {
   Search, 
   Filter,
   Eye,
+  Edit,
   Mail,
   Phone,
   MapPin,
   UserPlus,
   Users,
   User,
-  Calendar
+  Calendar,
+  Loader2
 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+
+interface Customer {
+  id: number
+  email: string
+  name: string
+  phone: string
+  address: string
+  status: string
+  notes?: string
+  joinDate: string
+  totalOrders: number
+  totalSpent: number
+  lastOrderDate: string
+}
 
 export default function AdminCustomers() {
+  const { toast } = useToast()
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [newCustomer, setNewCustomer] = useState({
     name: "",
     email: "",
     phone: "",
-    location: "",
+    address: "",
     status: "active",
-    joinDate: new Date().toISOString().split('T')[0]
+    notes: ""
   })
-  
-  const customers = [
-    {
-      id: 1,
-      name: "Rahul Sharma",
-      email: "rahul.sharma@email.com",
-      phone: "+91 98765 43210",
-      location: "Mumbai, Maharashtra",
-      orders: 12,
-      totalSpent: 15400,
-      status: "active",
-      joinDate: "2023-08-15"
-    },
-    {
-      id: 2,
-      name: "Priya Singh",
-      email: "priya.singh@email.com",
-      phone: "+91 87654 32109",
-      location: "Delhi, Delhi",
-      orders: 8,
-      totalSpent: 9200,
-      status: "active",
-      joinDate: "2023-09-22"
-    },
-    {
-      id: 3,
-      name: "Arjun Patel",
-      email: "arjun.patel@email.com",
-      phone: "+91 76543 21098",
-      location: "Bangalore, Karnataka",
-      orders: 15,
-      totalSpent: 22100,
-      status: "vip",
-      joinDate: "2023-07-03"
-    },
-    {
-      id: 4,
-      name: "Sneha Gupta",
-      email: "sneha.gupta@email.com",
-      phone: "+91 65432 10987",
-      location: "Pune, Maharashtra",
-      orders: 3,
-      totalSpent: 4500,
-      status: "new",
-      joinDate: "2024-01-10"
-    },
-    {
-      id: 5,
-      name: "Vikram Kumar",
-      email: "vikram.kumar@email.com",
-      phone: "+91 54321 09876",
-      location: "Chennai, Tamil Nadu",
-      orders: 0,
-      totalSpent: 0,
-      status: "inactive",
-      joinDate: "2023-12-05"
+
+  // Fetch customers from API
+  useEffect(() => {
+    fetchCustomers()
+  }, [])
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/customers')
+      if (response.ok) {
+        const data = await response.json()
+        setCustomers(data)
+      } else {
+        console.error('Failed to fetch customers')
+        setCustomers([])
+      }
+    } catch (error) {
+      console.error('Error fetching customers:', error)
+      setCustomers([])
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -108,28 +98,147 @@ export default function AdminCustomers() {
     )
   }
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredCustomers = customers.filter(customer => {
+    const matchesSearch = 
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesStatus = !statusFilter || statusFilter === 'all' || customer.status === statusFilter
+    
+    return matchesSearch && matchesStatus
+  })
 
-  const handleAddCustomer = () => {
-    // Here you would typically send the data to your backend
-    console.log("Adding new customer:", newCustomer)
-    
-    // For demo purposes, we'll just close the modal and reset the form
-    setIsAddModalOpen(false)
-    setNewCustomer({
-      name: "",
-      email: "",
-      phone: "",
-      location: "",
-      status: "active",
-      joinDate: new Date().toISOString().split('T')[0]
-    })
-    
-    // You could also show a success toast here
-    alert("Customer added successfully! (This is a demo - in real app, it would save to database)")
+  const handleAddCustomer = async () => {
+    try {
+      // Validate required fields
+      if (!newCustomer.name || !newCustomer.email || !newCustomer.phone) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Please fill in all required fields (Name, Email, Phone)",
+        })
+        return
+      }
+
+      const response = await fetch('/api/customers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newCustomer)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setIsAddModalOpen(false)
+        setNewCustomer({
+          name: "",
+          email: "",
+          phone: "",
+          address: "",
+          status: "active",
+          notes: ""
+        })
+        toast({
+          variant: "success",
+          title: "Success!",
+          description: "Customer added successfully!",
+        })
+        fetchCustomers() // Refresh the list
+      } else {
+        const error = await response.json()
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to add customer: ${error.error}`,
+        })
+      }
+    } catch (error) {
+      console.error('Error adding customer:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add customer. Please try again.",
+      })
+    }
+  }
+
+  const handleViewCustomer = async (customerId: number) => {
+    try {
+      const response = await fetch(`/api/customers/${customerId}`)
+      if (response.ok) {
+        const customerData = await response.json()
+        setSelectedCustomer(customerData)
+        setIsViewModalOpen(true)
+      } else {
+        console.error('Failed to fetch customer details')
+      }
+    } catch (error) {
+      console.error('Error fetching customer details:', error)
+    }
+  }
+
+  const handleEditCustomer = async (customerId: number) => {
+    try {
+      const response = await fetch(`/api/customers/${customerId}`)
+      if (response.ok) {
+        const customerData = await response.json()
+        setSelectedCustomer(customerData)
+        setNewCustomer({
+          name: customerData.name,
+          email: customerData.email,
+          phone: customerData.phone,
+          address: customerData.address || "",
+          status: customerData.status,
+          notes: customerData.notes || ""
+        })
+        setIsEditModalOpen(true)
+      } else {
+        console.error('Failed to fetch customer details')
+      }
+    } catch (error) {
+      console.error('Error fetching customer details:', error)
+    }
+  }
+
+  const handleUpdateCustomer = async () => {
+    if (!selectedCustomer) return
+
+    try {
+      const response = await fetch(`/api/customers/${selectedCustomer.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newCustomer)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? result.customer : c))
+        setIsEditModalOpen(false)
+        setSelectedCustomer(null)
+        toast({
+          variant: "success",
+          title: "Success!",
+          description: "Customer updated successfully!",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: `Failed to update customer: ${error.error}`,
+        })
+      }
+    } catch (error) {
+      console.error('Error updating customer:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update customer. Please try again.",
+      })
+    }
   }
 
   const handleInputChange = (field: string, value: string) => {
@@ -189,7 +298,7 @@ export default function AdminCustomers() {
                   />
                 </div>
 
-                {/* Phone and Location */}
+                {/* Phone and Address */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number *</Label>
@@ -202,12 +311,12 @@ export default function AdminCustomers() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="location">Location</Label>
+                    <Label htmlFor="address">Address</Label>
                     <Input
-                      id="location"
+                      id="address"
                       placeholder="Mumbai, Maharashtra"
-                      value={newCustomer.location}
-                      onChange={(e) => handleInputChange("location", e.target.value)}
+                      value={newCustomer.address}
+                      onChange={(e) => handleInputChange("address", e.target.value)}
                     />
                   </div>
                 </div>
@@ -228,23 +337,17 @@ export default function AdminCustomers() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="joinDate">Join Date</Label>
-                    <Input
-                      id="joinDate"
-                      type="date"
-                      value={newCustomer.joinDate}
-                      onChange={(e) => handleInputChange("joinDate", e.target.value)}
-                    />
-                  </div>
+
                 </div>
 
-                {/* Additional Information */}
+                {/* Notes */}
                 <div className="space-y-2">
                   <Label htmlFor="notes">Notes (Optional)</Label>
                   <Input
                     id="notes"
                     placeholder="Any additional information about the customer..."
+                    value={newCustomer.notes}
+                    onChange={(e) => handleInputChange("notes", e.target.value)}
                   />
                 </div>
 
@@ -290,6 +393,197 @@ export default function AdminCustomers() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* View Customer Modal */}
+          <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center">
+                  <User className="w-5 h-5 mr-2" />
+                  Customer Details
+                </DialogTitle>
+              </DialogHeader>
+              
+              {selectedCustomer && (
+                <div className="space-y-6">
+                  {/* Customer Info */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Name</Label>
+                      <p className="text-gray-900">{selectedCustomer.name}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Email</Label>
+                      <p className="text-gray-900">{selectedCustomer.email}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Phone</Label>
+                      <p className="text-gray-900">{selectedCustomer.phone}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Status</Label>
+                      <div className="mt-1">{getStatusBadge(selectedCustomer.status)}</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-600">Address</Label>
+                    <p className="text-gray-900">{selectedCustomer.address || 'No address provided'}</p>
+                  </div>
+
+                  {selectedCustomer.notes && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Notes</Label>
+                      <p className="text-gray-900">{selectedCustomer.notes}</p>
+                    </div>
+                  )}
+
+                  {/* Statistics */}
+                  <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-gray-900">{selectedCustomer.totalOrders}</p>
+                      <p className="text-sm text-gray-600">Total Orders</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-gray-900">₹{selectedCustomer.totalSpent.toLocaleString()}</p>
+                      <p className="text-sm text-gray-600">Total Spent</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-gray-900">
+                        {new Date(selectedCustomer.joinDate).toLocaleDateString()}
+                      </p>
+                      <p className="text-sm text-gray-600">Joined</p>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsViewModalOpen(false)}
+                    >
+                      Close
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        setIsViewModalOpen(false)
+                        handleEditCustomer(selectedCustomer.id)
+                      }}
+                      className="bg-black hover:bg-gray-800"
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit Customer
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Customer Modal */}
+          <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center">
+                  <Edit className="w-5 h-5 mr-2" />
+                  Edit Customer
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-6">
+                {/* Customer Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Full Name *</Label>
+                  <Input
+                    id="edit-name"
+                    placeholder="e.g., Rahul Sharma"
+                    value={newCustomer.name}
+                    onChange={(e) => handleInputChange("name", e.target.value)}
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email Address *</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    placeholder="rahul.sharma@email.com"
+                    value={newCustomer.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                  />
+                </div>
+
+                {/* Phone and Address */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-phone">Phone Number *</Label>
+                    <Input
+                      id="edit-phone"
+                      type="tel"
+                      placeholder="+91 98765 43210"
+                      value={newCustomer.phone}
+                      onChange={(e) => handleInputChange("phone", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-address">Address</Label>
+                    <Input
+                      id="edit-address"
+                      placeholder="Mumbai, Maharashtra"
+                      value={newCustomer.address}
+                      onChange={(e) => handleInputChange("address", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Status and Notes */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-status">Status</Label>
+                    <Select value={newCustomer.status} onValueChange={(value) => handleInputChange("status", value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="vip">VIP</SelectItem>
+                        <SelectItem value="new">New</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-notes">Notes</Label>
+                    <Input
+                      id="edit-notes"
+                      placeholder="Any additional notes..."
+                      value={newCustomer.notes}
+                      onChange={(e) => handleInputChange("notes", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsEditModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleUpdateCustomer}
+                    disabled={!newCustomer.name || !newCustomer.email || !newCustomer.phone}
+                    className="bg-black hover:bg-gray-800"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Update Customer
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Stats Cards */}
@@ -300,7 +594,7 @@ export default function AdminCustomers() {
                 <Users className="w-8 h-8 text-blue-600 mr-3" />
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Customers</p>
-                  <p className="text-2xl font-bold text-gray-900">892</p>
+                  <p className="text-2xl font-bold text-gray-900">{customers.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -313,7 +607,7 @@ export default function AdminCustomers() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">Active</p>
-                  <p className="text-2xl font-bold text-gray-900">756</p>
+                  <p className="text-2xl font-bold text-gray-900">{customers.filter(c => c.status === 'active').length}</p>
                 </div>
               </div>
             </CardContent>
@@ -326,7 +620,7 @@ export default function AdminCustomers() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">VIP Customers</p>
-                  <p className="text-2xl font-bold text-gray-900">45</p>
+                  <p className="text-2xl font-bold text-gray-900">{customers.filter(c => c.status === 'vip').length}</p>
                 </div>
               </div>
             </CardContent>
@@ -339,7 +633,7 @@ export default function AdminCustomers() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">New This Month</p>
-                  <p className="text-2xl font-bold text-gray-900">91</p>
+                  <p className="text-2xl font-bold text-gray-900">{customers.filter(c => c.status === 'new').length}</p>
                 </div>
               </div>
             </CardContent>
@@ -361,60 +655,99 @@ export default function AdminCustomers() {
                   />
                 </div>
               </div>
-              <Button variant="outline">
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
-              </Button>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="vip">VIP</SelectItem>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
 
-        {/* Customers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCustomers.map((customer) => (
-            <Card key={customer.id} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
+        {/* Loading State */}
+        {loading ? (
+          <Card>
+            <CardContent className="p-12">
+              <div className="flex justify-center items-center">
+                <Loader2 className="w-8 h-8 animate-spin mr-3" />
+                <p>Loading customers...</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          /* Customers Grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCustomers.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-gray-500">
+                {searchTerm || statusFilter !== 'all' ? 'No customers found matching your criteria.' : 'No customers found.'}
+              </div>
+            ) : (
+              filteredCustomers.map((customer) => (
+                <Card key={customer.email} className="hover:shadow-lg transition-shadow">
+                  <CardContent className="p-6">
+                                    <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900 mb-1">{customer.name}</h3>
                     {getStatusBadge(customer.status)}
                   </div>
-                  <Button size="sm" variant="outline">
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Mail className="w-4 h-4 mr-2" />
-                    {customer.email}
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Phone className="w-4 h-4 mr-2" />
-                    {customer.phone}
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <MapPin className="w-4 h-4 mr-2" />
-                    {customer.location}
+                  <div className="flex gap-1">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleViewCustomer(customer.id)}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleEditCustomer(customer.id)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
+                    
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Mail className="w-4 h-4 mr-2" />
+                        {customer.email}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Phone className="w-4 h-4 mr-2" />
+                        {customer.phone}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <MapPin className="w-4 h-4 mr-2" />
+                        {customer.address}
+                      </div>
+                    </div>
 
-                <div className="border-t pt-4">
-                  <div className="grid grid-cols-2 gap-4 text-center">
-                    <div>
-                      <p className="text-lg font-bold text-gray-900">{customer.orders}</p>
-                      <p className="text-xs text-gray-600">Orders</p>
+                    <div className="border-t pt-4">
+                      <div className="grid grid-cols-2 gap-4 text-center">
+                        <div>
+                          <p className="text-lg font-bold text-gray-900">{customer.totalOrders}</p>
+                          <p className="text-xs text-gray-600">Orders</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-gray-900">₹{customer.totalSpent.toLocaleString()}</p>
+                          <p className="text-xs text-gray-600">Total Spent</p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-lg font-bold text-gray-900">₹{customer.totalSpent.toLocaleString()}</p>
-                      <p className="text-xs text-gray-600">Total Spent</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

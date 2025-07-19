@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
+    const productType = searchParams.get('productType')
     const status = searchParams.get('status')
     const featured = searchParams.get('featured')
     const search = searchParams.get('search')
@@ -13,6 +14,7 @@ export async function GET(request: NextRequest) {
     const where: any = {}
     
     if (category) where.category = category
+    if (productType) where.productType = productType
     if (status) where.status = status
     if (featured) where.featured = featured === 'true'
     if (search) {
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
       originalPrice,
       images,
       category,
+      productType,
       sizes,
       colors,
       inStock,
@@ -65,9 +68,9 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!name || !price || !category) {
+    if (!name || !price || !category || !productType) {
       return NextResponse.json(
-        { error: 'Name, price, and category are required' },
+        { error: 'Name, price, category, and product type are required' },
         { status: 400 }
       )
     }
@@ -80,6 +83,7 @@ export async function POST(request: NextRequest) {
         originalPrice: originalPrice ? parseFloat(originalPrice) : null,
         images: JSON.stringify(images || []),
         category,
+        productType,
         sizes: JSON.stringify(sizes || []),
         colors: JSON.stringify(colors || []),
         inStock: inStock !== undefined ? inStock : true,

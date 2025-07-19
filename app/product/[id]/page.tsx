@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ShoppingCart, ArrowLeft, Star, Heart, Share2, Minus, Plus } from "lucide-react"
 import { gsap } from "gsap"
 import { CartContext } from "@/components/providers"
+import { useToast } from "@/hooks/use-toast"
 
 interface Product {
   id: number
@@ -55,7 +56,8 @@ const productReviews = [
 ]
 
 export default function ProductPage({ params }: { params: { id: string } }) {
-  const { addToCart } = useContext(CartContext)
+  const { toast } = useToast()
+  const { addToCart, cartCount } = useContext(CartContext)
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState(0)
@@ -130,7 +132,11 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     }
     
     if (!selectedSize) {
-      alert("Pick a size first, genius!")
+      toast({
+        variant: "destructive",
+        title: "Size Required",
+        description: "Pick a size first, genius!",
+      })
       return
     }
     
@@ -192,7 +198,11 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     }
     
     if (!selectedSize) {
-      alert("Pick a size first!")
+      toast({
+        variant: "destructive",
+        title: "Size Required",
+        description: "Pick a size first!",
+      })
       return
     }
     // Add to cart and redirect to checkout
